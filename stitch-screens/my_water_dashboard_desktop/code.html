@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>JalSetu | Citizen Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&amp;family=Geist:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed-dim": "#89ceff",
+                        "on-tertiary-fixed-variant": "#005049",
+                        "surface": "#0f1418",
+                        "inverse-primary": "#006591",
+                        "on-error-container": "#ffdad6",
+                        "surface-bright": "#353a3e",
+                        "error-container": "#93000a",
+                        "inverse-surface": "#dee3e9",
+                        "tertiary-container": "#38ac9f",
+                        "surface-container-low": "#171c20",
+                        "on-tertiary-fixed": "#00201d",
+                        "on-secondary-fixed-variant": "#004e5a",
+                        "on-primary-container": "#003751",
+                        "primary-fixed": "#c9e6ff",
+                        "outline-variant": "#3e4850",
+                        "on-surface-variant": "#bec8d2",
+                        "on-primary-fixed-variant": "#004c6e",
+                        "on-primary-fixed": "#001e2f",
+                        "on-secondary-container": "#00515d",
+                        "surface-container": "#1b2024",
+                        "on-secondary-fixed": "#001f25",
+                        "surface-container-high": "#252b2f",
+                        "on-tertiary": "#003732",
+                        "tertiary": "#6bd8cb",
+                        "background": "#0f1418",
+                        "outline": "#88929b",
+                        "surface-container-highest": "#30353a",
+                        "on-background": "#dee3e9",
+                        "on-tertiary-container": "#003a35",
+                        "error": "#ffb4ab",
+                        "secondary-container": "#00cbe6",
+                        "on-secondary": "#00363e",
+                        "primary-container": "#0ea5e9",
+                        "secondary-fixed-dim": "#2fd9f4",
+                        "on-surface": "#dee3e9",
+                        "on-error": "#690005",
+                        "on-primary": "#00344d",
+                        "surface-tint": "#89ceff",
+                        "tertiary-fixed": "#89f5e7",
+                        "surface-variant": "#30353a",
+                        "primary": "#89ceff",
+                        "tertiary-fixed-dim": "#6bd8cb",
+                        "inverse-on-surface": "#2c3135",
+                        "surface-container-lowest": "#0a0f13",
+                        "secondary": "#5de6ff",
+                        "surface-dim": "#0f1418",
+                        "secondary-fixed": "#a2eeff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.125rem",
+                        "lg": "0.25rem",
+                        "xl": "0.5rem",
+                        "full": "0.75rem"
+                    },
+                    "spacing": {
+                        "2xl": "48px",
+                        "gutter": "20px",
+                        "base": "4px",
+                        "xs": "8px",
+                        "container-max": "1440px",
+                        "md": "16px",
+                        "sm": "12px",
+                        "xl": "32px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "body-md": ["Inter"],
+                        "mono-metrics": ["Geist"],
+                        "headline-lg-mobile": ["Geist"],
+                        "body-sm": ["Inter"],
+                        "headline-md": ["Geist"],
+                        "display-lg": ["Geist"],
+                        "label-md": ["Geist"],
+                        "headline-lg": ["Geist"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "body-md": ["16px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "mono-metrics": ["14px", {"lineHeight": "1", "letterSpacing": "-0.01em", "fontWeight": "500"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "1.2", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "1.5", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "1.3", "fontWeight": "500"}],
+                        "display-lg": ["48px", {"lineHeight": "1.1", "letterSpacing": "-0.04em", "fontWeight": "700"}],
+                        "label-md": ["12px", {"lineHeight": "1", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "headline-lg": ["32px", {"lineHeight": "1.2", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-lg": ["18px", {"lineHeight": "1.6", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body {
+            background-color: #020617;
+            color: #dee3e9;
+        }
+        .glass-card {
+            backdrop-filter: blur(12px);
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .tank-gradient {
+            background: linear-gradient(180deg, rgba(34, 211, 238, 0.2) 0%, rgba(14, 165, 233, 0.6) 100%);
+        }
+        .animate-wave {
+            animation: wave 4s ease-in-out infinite;
+        }
+        @keyframes wave {
+            0%, 100% { transform: translateY(0) scaleY(1); }
+            50% { transform: translateY(-5px) scaleY(1.02); }
+        }
+        .glow-primary {
+            box-shadow: 0 0 20px rgba(14, 165, 233, 0.15);
+        }
+    </style>
+</head>
+<body class="font-body-md overflow-hidden">
+<!-- Sidebar Navigation -->
+<aside class="fixed left-0 top-0 h-full w-[240px] bg-surface-container-low/60 backdrop-blur-2xl border-r border-outline-variant/10 flex flex-col z-40 transition-all duration-200">
+<div class="font-headline-md text-headline-md font-bold text-primary px-lg py-xl">
+            JalSetu
+        </div>
+<div class="px-md py-sm mb-lg">
+<div class="flex items-center gap-sm p-sm rounded-xl bg-surface-container-high/50 border border-outline-variant/10">
+<div class="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined">person</span>
+</div>
+<div class="overflow-hidden">
+<p class="font-label-md text-label-md text-on-surface truncate">Admin Ward 12</p>
+<p class="text-[10px] text-on-surface-variant truncate">North Sector</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-xs space-y-1">
+<a class="flex items-center gap-md px-md py-sm text-primary bg-primary-container/10 border-r-2 border-primary font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span>Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-all duration-200" href="#">
+<span class="material-symbols-outlined">settings_remote</span>
+<span>Control Center</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-all duration-200" href="#">
+<span class="material-symbols-outlined">water_full</span>
+<span>Tanks</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-all duration-200" href="#">
+<span class="material-symbols-outlined">event_upcoming</span>
+<span>Scheduler</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-all duration-200" href="#">
+<span class="material-symbols-outlined">support_agent</span>
+<span>Complaints</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-all duration-200" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span>Analytics</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high font-label-md text-label-md transition-all duration-200" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span>Settings</span>
+</a>
+</nav>
+<div class="p-md mt-auto space-y-1">
+<button class="w-full mb-md flex items-center justify-center gap-sm bg-error-container/20 text-error border border-error/30 py-sm rounded-lg font-label-md text-label-md hover:bg-error/20 transition-colors">
+<span class="material-symbols-outlined text-[18px]">power_settings_new</span>
+                Emergency Shutdown
+            </button>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:text-on-surface transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">help</span>
+<span>Help Center</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:text-on-surface transition-colors font-label-md text-label-md" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span>Logout</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-[240px] h-screen overflow-y-auto p-xl relative">
+<!-- Atmospheric Background Glow -->
+<div class="absolute top-[-10%] right-[-5%] w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] pointer-events-none"></div>
+<div class="absolute bottom-[-10%] left-[5%] w-[400px] h-[400px] bg-tertiary/5 rounded-full blur-[100px] pointer-events-none"></div>
+<!-- Header -->
+<header class="mb-2xl flex justify-between items-end">
+<div>
+<p class="text-primary font-label-md text-label-md uppercase tracking-widest mb-xs">Live Monitoring</p>
+<h1 class="font-display-lg text-display-lg text-on-surface">Welcome back, Citizen</h1>
+</div>
+<div class="flex gap-md">
+<div class="glass-card px-lg py-md rounded-xl flex items-center gap-md">
+<div class="w-2 h-2 rounded-full bg-tertiary animate-pulse"></div>
+<span class="font-mono-metrics text-mono-metrics">System Status: Optimal</span>
+</div>
+</div>
+</header>
+<!-- Dashboard Bento Grid -->
+<div class="grid grid-cols-12 gap-lg max-w-container-max">
+<!-- Water Tank Widget (Large) -->
+<div class="col-span-12 lg:col-span-8 glass-card rounded-2xl p-xl flex flex-col md:flex-row items-center gap-2xl min-h-[400px]">
+<div class="flex-1">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-sm">Local Ward Storage</h3>
+<p class="text-on-surface-variant font-body-md mb-xl max-w-md">The main reservoir for North Sector - Ward 12 is currently operating at high capacity. Inflow remains steady from the primary conduit.</p>
+<div class="grid grid-cols-2 gap-xl">
+<div>
+<p class="text-label-md text-on-surface-variant mb-base">Current Volume</p>
+<p class="text-headline-lg font-headline-lg text-primary">750,000 L</p>
+</div>
+<div>
+<p class="text-label-md text-on-surface-variant mb-base">Estimated Outflow</p>
+<p class="text-headline-lg font-headline-lg text-secondary">42k L/hr</p>
+</div>
+</div>
+</div>
+<!-- Animated Tank Graphic -->
+<div class="relative w-64 h-80 bg-surface-container-highest/30 rounded-t-[100px] rounded-b-xl border-4 border-outline-variant/20 overflow-hidden flex flex-col justify-end">
+<div class="tank-gradient w-full h-[75%] relative animate-wave origin-bottom">
+<div class="absolute top-0 left-0 w-full h-4 bg-white/10 -translate-y-full blur-sm"></div>
+<div class="absolute inset-0 flex items-center justify-center">
+<span class="text-display-lg font-display-lg text-white drop-shadow-lg">75%</span>
+</div>
+</div>
+<!-- Bubbles Overlay -->
+<div class="absolute inset-0 pointer-events-none opacity-40">
+<div class="absolute bottom-4 left-1/4 w-2 h-2 bg-white rounded-full animate-bounce"></div>
+<div class="absolute bottom-12 right-1/3 w-3 h-3 bg-white rounded-full animate-bounce" style="animation-delay: 1s;"></div>
+</div>
+</div>
+</div>
+<!-- Next Supply Countdown -->
+<div class="col-span-12 lg:col-span-4 glass-card rounded-2xl p-xl flex flex-col justify-center items-center text-center">
+<span class="material-symbols-outlined text-primary text-[48px] mb-md">timer</span>
+<p class="text-label-md text-on-surface-variant uppercase tracking-widest mb-xs">Next Supply Countdown</p>
+<div class="text-display-lg font-display-lg text-on-surface font-mono-metrics tracking-tighter">
+                    02:45:12
+                </div>
+<div class="mt-md px-md py-xs bg-tertiary/10 border border-tertiary/30 text-tertiary rounded-full text-label-md">
+                    Scheduled: Morning Session
+                </div>
+</div>
+<!-- Consumption Analytics Chart -->
+<div class="col-span-12 lg:col-span-7 glass-card rounded-2xl p-xl h-[360px]">
+<div class="flex justify-between items-start mb-xl">
+<h3 class="font-headline-md text-headline-md text-on-surface">Consumption Analytics</h3>
+<div class="flex gap-xs">
+<button class="px-sm py-xs rounded-lg bg-primary-container text-on-primary font-label-md">Week</button>
+<button class="px-sm py-xs rounded-lg hover:bg-surface-container-high text-on-surface-variant font-label-md">Month</button>
+</div>
+</div>
+<!-- Mock Chart Area -->
+<div class="relative w-full h-48 mt-lg">
+<svg class="w-full h-full overflow-visible" viewbox="0 0 400 100">
+<defs>
+<lineargradient id="chartGradient" x1="0" x2="0" y1="0" y2="1">
+<stop offset="0%" stop-color="#22D3EE" stop-opacity="0.3"></stop>
+<stop offset="100%" stop-color="#22D3EE" stop-opacity="0"></stop>
+</lineargradient>
+</defs>
+<path d="M0,80 Q50,60 100,75 T200,40 T300,55 T400,30 V100 H0 Z" fill="url(#chartGradient)"></path>
+<path d="M0,80 Q50,60 100,75 T200,40 T300,55 T400,30" fill="none" stroke="#22D3EE" stroke-width="2"></path>
+<circle cx="200" cy="40" fill="#22D3EE" r="4"></circle>
+</svg>
+<div class="flex justify-between mt-sm text-label-md text-on-surface-variant">
+<span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+</div>
+</div>
+</div>
+<!-- Supply Schedule -->
+<div class="col-span-12 lg:col-span-5 glass-card rounded-2xl p-xl">
+<h3 class="font-headline-md text-headline-md text-on-surface mb-lg">Supply Schedule</h3>
+<div class="space-y-md">
+<div class="flex items-center justify-between p-md rounded-xl bg-surface-container-highest/20 border border-outline-variant/10">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-secondary">wb_sunny</span>
+<div>
+<p class="font-label-md text-on-surface">Morning</p>
+<p class="text-body-sm text-on-surface-variant">06:00 AM - 09:00 AM</p>
+</div>
+</div>
+<span class="text-tertiary text-label-md">Current</span>
+</div>
+<div class="flex items-center justify-between p-md rounded-xl bg-surface-container-low border border-outline-variant/5">
+<div class="flex items-center gap-md opacity-60">
+<span class="material-symbols-outlined">wb_twilight</span>
+<div>
+<p class="font-label-md text-on-surface">Evening</p>
+<p class="text-body-sm text-on-surface-variant">06:00 PM - 08:30 PM</p>
+</div>
+</div>
+<span class="text-on-surface-variant text-label-md">Upcoming</span>
+</div>
+<div class="flex items-center justify-between p-md rounded-xl bg-surface-container-low border border-outline-variant/5">
+<div class="flex items-center gap-md opacity-60">
+<span class="material-symbols-outlined">nightlight</span>
+<div>
+<p class="font-label-md text-on-surface">Night Flow</p>
+<p class="text-body-sm text-on-surface-variant">11:00 PM - 02:00 AM</p>
+</div>
+</div>
+<span class="text-on-surface-variant text-label-md">Maintenance</span>
+</div>
+</div>
+</div>
+<!-- Recent Notifications -->
+<div class="col-span-12 glass-card rounded-2xl p-xl">
+<div class="flex justify-between items-center mb-xl">
+<h3 class="font-headline-md text-headline-md text-on-surface">Recent Notifications</h3>
+<a class="text-primary font-label-md hover:underline" href="#">View All</a>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-lg">
+<div class="flex gap-md p-md rounded-xl hover:bg-white/5 transition-colors group">
+<div class="w-10 h-10 shrink-0 rounded-full bg-error-container/20 text-error flex items-center justify-center">
+<span class="material-symbols-outlined">warning</span>
+</div>
+<div>
+<p class="font-label-md text-on-surface mb-xs">Planned Maintenance</p>
+<p class="text-body-sm text-on-surface-variant line-clamp-2">Section B-12 will experience low pressure tomorrow from 2 PM to 5 PM due to sensor calibration.</p>
+<p class="text-[10px] text-outline mt-sm">2 hours ago</p>
+</div>
+</div>
+<div class="flex gap-md p-md rounded-xl hover:bg-white/5 transition-colors group">
+<div class="w-10 h-10 shrink-0 rounded-full bg-tertiary-container/20 text-tertiary flex items-center justify-center">
+<span class="material-symbols-outlined">check_circle</span>
+</div>
+<div>
+<p class="font-label-md text-on-surface mb-xs">Quality Report Ready</p>
+<p class="text-body-sm text-on-surface-variant line-clamp-2">The weekly water purity report for Ward 12 North is now available. Standards: Excellent.</p>
+<p class="text-[10px] text-outline mt-sm">5 hours ago</p>
+</div>
+</div>
+<div class="flex gap-md p-md rounded-xl hover:bg-white/5 transition-colors group">
+<div class="w-10 h-10 shrink-0 rounded-full bg-secondary-container/20 text-secondary flex items-center justify-center">
+<span class="material-symbols-outlined">info</span>
+</div>
+<div>
+<p class="font-label-md text-on-surface mb-xs">Usage Milestone</p>
+<p class="text-body-sm text-on-surface-variant line-clamp-2">Your household consumption is 12% lower than the ward average this month. Great job!</p>
+<p class="text-[10px] text-outline mt-sm">Yesterday</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<footer class="mt-2xl pt-xl border-t border-outline-variant/10 flex flex-col md:flex-row justify-between items-center gap-md">
+<p class="text-on-surface-variant font-body-sm">© 2024 JalSetu Technologies. Securing every drop.</p>
+<div class="flex gap-xl">
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-sm" href="#">Privacy Policy</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-sm" href="#">Terms of Service</a>
+<a class="text-on-surface-variant hover:text-primary transition-colors font-body-sm" href="#">Contact Support</a>
+</div>
+</footer>
+</main>
+<!-- Floating Action Button -->
+<button class="fixed bottom-xl right-xl w-16 h-16 rounded-full bg-primary text-on-primary shadow-2xl flex items-center justify-center glow-primary hover:scale-110 transition-transform active:scale-95 z-50">
+<span class="material-symbols-outlined text-[32px]">report_problem</span>
+<div class="absolute -top-1 -right-1 px-xs bg-error text-white text-[10px] rounded-full border-2 border-background">ALERT</div>
+</button>
+<script>
+        // Micro-interactions and Countdown Simulation
+        document.addEventListener('DOMContentLoaded', () => {
+            const countdownEl = document.querySelector('.text-display-lg.font-mono-metrics');
+            let seconds = 9912; // Initial mock seconds for 02:45:12
+
+            setInterval(() => {
+                seconds--;
+                const h = Math.floor(seconds / 3600);
+                const m = Math.floor((seconds % 3600) / 60);
+                const s = seconds % 60;
+                countdownEl.textContent = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+            }, 1000);
+
+            // Subtle hover effect for glass cards
+            const cards = document.querySelectorAll('.glass-card');
+            cards.forEach(card => {
+                card.addEventListener('mousemove', (e) => {
+                    const rect = card.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const y = e.clientY - rect.top;
+                    card.style.setProperty('--mouse-x', `${x}px`);
+                    card.style.setProperty('--mouse-y', `${y}px`);
+                });
+            });
+        });
+    </script>
+</body></html>
