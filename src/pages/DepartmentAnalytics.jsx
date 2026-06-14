@@ -1,6 +1,14 @@
-import { motion } from "framer-motion";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from "recharts";
 import { supplyTrends } from "../data/mockData";
+
+const monthlySupplyTrends = [
+  { day: "Week 1", consumed: 14200000, supplied: 16800000, wastage: 840000 },
+  { day: "Week 2", consumed: 15100000, supplied: 17200000, wastage: 960000 },
+  { day: "Week 3", consumed: 13800000, supplied: 15900000, wastage: 720000 },
+  { day: "Week 4", consumed: 16400000, supplied: 18900000, wastage: 1100000 },
+];
 
 // Format liters to readable text (e.g. 2.4M L)
 const formatLiters = (val) => {
@@ -9,6 +17,29 @@ const formatLiters = (val) => {
 };
 
 const DepartmentAnalytics = () => {
+  const [timeframe, setTimeframe] = useState("weekly");
+  const [isExporting, setIsExporting] = useState(false);
+  const [toasts, setToasts] = useState([]);
+
+  const addToast = (message, type = "success") => {
+    const id = Date.now();
+    setToasts((prev) => [...prev, { id, message, type }]);
+    setTimeout(() => {
+      setToasts((prev) => prev.filter((t) => t.id !== id));
+    }, 4000);
+  };
+
+  const handleExport = (e) => {
+    e.preventDefault();
+    if (isExporting) return;
+    setIsExporting(true);
+    addToast("Generating municipal system analytics report...", "info");
+    
+    setTimeout(() => {
+      setIsExporting(false);
+      addToast("JalSetu Intelligence Report (PDF) exported successfully!", "success");
+    }, 2000);
+  };
   return (
     <div className="max-w-[1440px] space-y-8">
       {/* Header */}
@@ -51,15 +82,31 @@ const DepartmentAnalytics = () => {
         {/* Main Flow Analysis Chart */}
         <div className="lg:col-span-8 glass-card rounded-2xl p-6 h-[400px] flex flex-col">
           <div className="flex justify-between items-center mb-6">
-            <h3 className="font-heading text-xl font-medium text-on-surface">Weekly Supply vs. Consumption</h3>
-            <div className="flex bg-surface-container-high rounded-full p-1 text-xs">
-              <span className="px-3 py-1.5 rounded-full bg-primary text-on-primary font-semibold">Weekly</span>
-              <span className="px-3 py-1.5 rounded-full text-on-surface-variant hover:text-on-surface transition-colors cursor-pointer">Monthly</span>
+            <h3 className="font-heading text-xl font-medium text-on-surface">
+              {timeframe === "weekly" ? "Weekly" : "Monthly"} Supply vs. Consumption
+            </h3>
+            <div className="flex bg-surface-container-high rounded-full p-1 text-xs border border-outline-variant/10">
+              <button 
+                onClick={() => setTimeframe("weekly")}
+                className={`px-3 py-1.5 rounded-full font-semibold transition-all cursor-pointer ${
+                  timeframe === "weekly" ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"
+                }`}
+              >
+                Weekly
+              </button>
+              <button 
+                onClick={() => setTimeframe("monthly")}
+                className={`px-3 py-1.5 rounded-full font-semibold transition-all cursor-pointer ${
+                  timeframe === "monthly" ? "bg-primary text-on-primary shadow-sm" : "text-on-surface-variant hover:text-on-surface"
+                }`}
+              >
+                Monthly
+              </button>
             </div>
           </div>
           <div className="flex-1 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={supplyTrends} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
+              <AreaChart data={timeframe === "weekly" ? supplyTrends : monthlySupplyTrends} margin={{ top: 10, right: 10, left: -15, bottom: 0 }}>
                 <defs>
                   <linearGradient id="suppliedColor" x1="0" y1="0" x2="0" y2="1">
                     <stop offset="5%" stopColor="#0ea5e9" stopOpacity={0.3}/>
@@ -88,10 +135,12 @@ const DepartmentAnalytics = () => {
 
         {/* Wastage Bar Chart */}
         <div className="lg:col-span-4 glass-card rounded-2xl p-6 h-[400px] flex flex-col">
-          <h3 className="font-heading text-xl font-medium text-on-surface mb-6">Wastage Volume Trend</h3>
+          <h3 className="font-heading text-xl font-medium text-on-surface mb-6">
+            {timeframe === "weekly" ? "Weekly" : "Monthly"} Wastage Volume Trend
+          </h3>
           <div className="flex-1 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={supplyTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+              <BarChart data={timeframe === "weekly" ? supplyTrends : monthlySupplyTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#3e4850" opacity={0.05} />
                 <XAxis dataKey="day" stroke="#bec8d2" fontSize={11} tickLine={false} />
                 <YAxis stroke="#bec8d2" fontSize={11} tickLine={false} tickFormatter={formatLiters} />
@@ -135,10 +184,50 @@ const DepartmentAnalytics = () => {
       <footer className="pt-8 border-t border-outline-variant/10 flex justify-between items-center text-on-surface-variant text-sm">
         <p>© 2024 JalSetu Technologies. Securing every drop.</p>
         <div className="flex gap-6">
-          <a href="#" className="hover:underline">Export Report</a>
+          <button 
+            onClick={handleExport}
+            disabled={isExporting}
+            className="hover:underline text-on-surface-variant hover:text-primary transition-colors cursor-pointer bg-transparent border-none outline-none font-semibold text-sm"
+          >
+            {isExporting ? "Exporting..." : "Export Report"}
+          </button>
           <a href="#" className="hover:underline">Documentation</a>
         </div>
       </footer>
+
+      {/* Toast Notifications */}
+      <div className="fixed bottom-4 left-4 z-50 flex flex-col gap-2 pointer-events-none">
+        <AnimatePresence>
+          {toasts.map((toast) => (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, x: -50, scale: 0.9 }}
+              animate={{ opacity: 1, x: 0, scale: 1 }}
+              exit={{ opacity: 0, x: -20, scale: 0.9 }}
+              className="pointer-events-auto min-w-[300px] glass-card px-4 py-3 rounded-xl border border-outline-variant/20 shadow-2xl flex items-center gap-3 bg-surface/80 backdrop-blur-xl"
+            >
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
+                toast.type === "error" ? "bg-error-container/20 text-error" : 
+                toast.type === "warning" ? "bg-warning/20 text-warning" : 
+                "bg-tertiary-container/20 text-tertiary"
+              }`}>
+                <span className="material-symbols-outlined text-lg">
+                  {toast.type === "error" ? "error" : toast.type === "warning" ? "warning" : "check_circle"}
+                </span>
+              </div>
+              <div className="flex-1">
+                <p className="text-xs text-on-surface-variant font-semibold">{toast.message}</p>
+              </div>
+              <button 
+                onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                className="text-on-surface-variant hover:text-on-surface cursor-pointer flex items-center justify-center p-0.5"
+              >
+                <span className="material-symbols-outlined text-sm">close</span>
+              </button>
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
     </div>
   );
 };
