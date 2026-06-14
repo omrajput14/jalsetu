@@ -1,12 +1,32 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { complaints, wards } from "../data/mockData";
+import { fetchComplaints, updateComplaint, fetchWards } from "../services/api";
 
 const DepartmentComplaints = () => {
-  const [ticketList, setTicketList] = useState(complaints);
-  const [selectedTicket, setSelectedTicket] = useState(complaints[0]);
+  const [ticketList, setTicketList] = useState([]);
+  const [selectedTicket, setSelectedTicket] = useState(null);
+  const [wardsList, setWardsList] = useState([]);
   const [filterStatus, setFilterStatus] = useState("All");
   const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        const [complaintsData, wardsData] = await Promise.all([
+          fetchComplaints(),
+          fetchWards(),
+        ]);
+        setTicketList(complaintsData);
+        setWardsList(wardsData);
+        if (complaintsData.length > 0) {
+          setSelectedTicket(complaintsData[0]);
+        }
+      } catch (err) {
+        console.error("Failed to load complaints page data:", err);
+      }
+    };
+    loadData();
+  }, []);
 
   const addToast = (message, type = "success") => {
     const id = Date.now();
@@ -16,18 +36,22 @@ const DepartmentComplaints = () => {
     }, 4000);
   };
 
-  const handleUpdateTicket = (status, priority) => {
-    setTicketList((prev) =>
-      prev.map((t) =>
-        t.id === selectedTicket.id ? { ...t, status, priority } : t
-      )
-    );
-    setSelectedTicket((prev) => ({ ...prev, status, priority }));
-    addToast(`Ticket #${selectedTicket.id} updated successfully.`, "success");
+  const handleUpdateTicket = async (status, priority) => {
+    try {
+      const updated = await updateComplaint(selectedTicket.id, status, priority);
+      setTicketList((prev) =>
+        prev.map((t) => (t.id === selectedTicket.id ? updated : t))
+      );
+      setSelectedTicket(updated);
+      addToast(`Ticket #${selectedTicket.id} updated successfully.`, "success");
+    } catch (err) {
+      console.error(err);
+      addToast(`Failed to update ticket #${selectedTicket.id}.`, "error");
+    }
   };
 
   const getWardName = (wardId) => {
-    const w = wards.find((ward) => ward.id === wardId);
+    const w = wardsList.find((ward) => ward.id === wardId);
     return w ? w.name.replace("Ward ", "W") : `Ward ${wardId}`;
   };
 
@@ -165,7 +189,7 @@ const DepartmentComplaints = () => {
               </div>
 
               {/* Status and Priority Form Controls */}
-              <div className="space-y-4">
+              <div className="space-y-4" key={selectedTicket.id}>
                 <div className="space-y-2">
                   <label className="text-[10px] text-on-surface-variant uppercase font-bold px-1">Update Status</label>
                   <select

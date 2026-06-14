@@ -1,13 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { wards } from "../data/mockData";
+import { fetchWards, updateWard } from "../services/api";
 import WaterTank from "../components/WaterTank";
 
 const DepartmentTanks = () => {
-  const [tankList, setTankList] = useState(wards);
-  const [selectedTank, setSelectedTank] = useState(wards[0]);
+  const [tankList, setTankList] = useState([]);
+  const [selectedTank, setSelectedTank] = useState(null);
   const [refilling, setRefilling] = useState(false);
   const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    const loadTanks = async () => {
+      try {
+        const data = await fetchWards();
+        setTankList(data);
+        if (data.length > 0) {
+          setSelectedTank(data[0]);
+        }
+      } catch (err) {
+        console.error("Failed to load reservoirs:", err);
+      }
+    };
+    loadTanks();
+  }, []);
 
   const addToast = (message, type = "success") => {
     const id = Date.now();
@@ -17,36 +32,50 @@ const DepartmentTanks = () => {
     }, 4000);
   };
 
-  const handleRefill = () => {
+  const handleRefill = async () => {
+    if (!selectedTank) return;
     setRefilling(true);
-    setTimeout(() => {
-      // Simulate level rising
+    const newLevel = Math.min(selectedTank.currentLevel + 15, 100);
+    const capacity = typeof selectedTank.tankCapacity === 'number'
+      ? selectedTank.tankCapacity
+      : parseInt(String(selectedTank.tankCapacity).replace(/,/g, ""));
+    const newVolumeVal = Math.round((newLevel / 100) * capacity);
+    const newVolume = `${Math.round(newVolumeVal / 1000)}K L`;
+    try {
+      const updated = await updateWard(selectedTank.id, {
+        currentLevel: newLevel,
+        currentVolume: newVolume
+      });
       setTankList((prev) =>
-        prev.map((t) =>
-          t.id === selectedTank.id
-            ? { ...t, currentLevel: Math.min(t.currentLevel + 15, 100) }
-            : t
-        )
+        prev.map((t) => (t.id === selectedTank.id ? updated : t))
       );
-      setSelectedTank((prev) => ({
-        ...prev,
-        currentLevel: Math.min(prev.currentLevel + 15, 100),
-      }));
-      setRefilling(false);
+      setSelectedTank(updated);
       addToast(`${selectedTank.name} refill cycle completed (+15%).`, "success");
-    }, 2000);
+    } catch (err) {
+      console.error(err);
+      addToast("Failed to refill reservoir.", "error");
+    } finally {
+      setRefilling(false);
+    }
   };
 
-  const handleTogglePump = () => {
+  const handleTogglePump = async () => {
+    if (!selectedTank) return;
     const updatedStatus = selectedTank.pumpStatus === "Active" ? "Inactive" : "Active";
-    setTankList((prev) =>
-      prev.map((t) => (t.id === selectedTank.id ? { ...t, pumpStatus: updatedStatus } : t))
-    );
-    setSelectedTank((prev) => ({ ...prev, pumpStatus: updatedStatus }));
-    addToast(`${selectedTank.name} pump override set to ${updatedStatus}.`, updatedStatus === "Active" ? "success" : "warning");
+    try {
+      const updated = await updateWard(selectedTank.id, { pumpStatus: updatedStatus });
+      setTankList((prev) =>
+        prev.map((t) => (t.id === selectedTank.id ? updated : t))
+      );
+      setSelectedTank(updated);
+      addToast(`${selectedTank.name} pump override set to ${updatedStatus}.`, updatedStatus === "Active" ? "success" : "warning");
+    } catch (err) {
+      console.error(err);
+      addToast("Failed to override pump status.", "error");
+    }
   };
 
-  const avgLevel = Math.round(tankList.reduce((acc, t) => acc + t.currentLevel, 0) / tankList.length);
+  const avgLevel = tankList.length > 0 ? Math.round(tankList.reduce((acc, t) => acc + t.currentLevel, 0) / tankList.length) : 0;
   const criticalTanks = tankList.filter((t) => t.currentLevel < 30).length;
 
   return (
@@ -104,7 +133,7 @@ const DepartmentTanks = () => {
                 key={tank.id}
                 onClick={() => setSelectedTank(tank)}
                 className={`p-4 rounded-2xl border cursor-pointer transition-all flex flex-col items-center justify-center ${
-                  selectedTank.id === tank.id
+                  selectedTank?.id === tank.id
                     ? "bg-primary-container/10 border-primary"
                     : "bg-surface-container-low border-outline-variant/10 hover:border-primary/20"
                 }`}
@@ -122,8 +151,9 @@ const DepartmentTanks = () => {
 
         {/* Tank Detailed Controls (Right) */}
         <div className="lg:col-span-4 space-y-6">
-          <div className="glass-card rounded-2xl p-6 flex flex-col h-full justify-between">
-            <div className="space-y-6">
+          {selectedTank ? (
+            <div className="glass-card rounded-2xl p-6 flex flex-col h-full justify-between">
+              <div className="space-y-6">
               <div className="flex justify-between items-start">
                 <div>
                   <h3 className="font-heading text-xl font-bold text-on-surface">{selectedTank.name}</h3>
@@ -184,7 +214,12 @@ const DepartmentTanks = () => {
             >
               {refilling ? "Refilling in Progress..." : "Initiate Direct Refill"}
             </button>
-          </div>
+            </div>
+          ) : (
+            <div className="glass-card rounded-2xl p-6 text-center text-on-surface-variant flex items-center justify-center h-full">
+              Select a reservoir to view detailed controls
+            </div>
+          )}
         </div>
       </div>
       {/* Toast Notifications */}

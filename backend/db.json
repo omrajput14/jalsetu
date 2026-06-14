@@ -1,0 +1,493 @@
+{
+  "wards": [
+    {
+      "id": 1,
+      "name": "Ward 1 \u2014 Lakshmi Nagar",
+      "sector": "North Sector",
+      "currentLevel": 93,
+      "tankCapacity": 500000,
+      "pumpStatus": "Active",
+      "lastRefill": "Today, 06:30 AM",
+      "nextSupply": "06:00 PM",
+      "currentVolume": "465K L",
+      "estimatedOutflow": "32k L/hr",
+      "supplySchedule": [
+        {
+          "time": "05:30 AM",
+          "duration": "2 hrs",
+          "status": "completed"
+        },
+        {
+          "time": "11:30 AM",
+          "duration": "1.5 hrs",
+          "status": "active"
+        },
+        {
+          "time": "05:30 PM",
+          "duration": "2 hrs",
+          "status": "upcoming"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Ward 2 \u2014 Gandhi Colony",
+      "sector": "North Sector",
+      "currentLevel": 45,
+      "tankCapacity": 400000,
+      "pumpStatus": "Active",
+      "lastRefill": "Today, 05:45 AM",
+      "nextSupply": "05:30 PM",
+      "currentVolume": "180K L",
+      "estimatedOutflow": "28k L/hr",
+      "supplySchedule": [
+        {
+          "time": "05:30 AM",
+          "duration": "2 hrs",
+          "status": "completed"
+        },
+        {
+          "time": "11:30 AM",
+          "duration": "1.5 hrs",
+          "status": "active"
+        },
+        {
+          "time": "05:30 PM",
+          "duration": "2 hrs",
+          "status": "upcoming"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Ward 3 \u2014 Shivaji Peth",
+      "sector": "East Sector",
+      "currentLevel": 92,
+      "tankCapacity": 600000,
+      "pumpStatus": "Active",
+      "lastRefill": "Today, 07:00 AM",
+      "nextSupply": "01:00 PM",
+      "currentVolume": "552K L",
+      "estimatedOutflow": "45k L/hr",
+      "supplySchedule": [
+        {
+          "time": "06:00 AM",
+          "duration": "2 hrs",
+          "status": "completed"
+        },
+        {
+          "time": "01:00 PM",
+          "duration": "1.5 hrs",
+          "status": "upcoming"
+        },
+        {
+          "time": "06:00 PM",
+          "duration": "2 hrs",
+          "status": "upcoming"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "name": "Ward 4 \u2014 Subhash Road",
+      "sector": "West Sector",
+      "currentLevel": 15,
+      "tankCapacity": 350000,
+      "pumpStatus": "Inactive",
+      "lastRefill": "Yesterday, 06:00 PM",
+      "nextSupply": "12:00 PM",
+      "currentVolume": "52K L",
+      "estimatedOutflow": "18k L/hr",
+      "supplySchedule": [
+        {
+          "time": "12:00 PM",
+          "duration": "3 hrs",
+          "status": "upcoming"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "name": "Ward 5 \u2014 Nehru Garden",
+      "sector": "South Sector",
+      "currentLevel": 30,
+      "tankCapacity": 450000,
+      "pumpStatus": "Active",
+      "lastRefill": "Today, 04:00 AM",
+      "nextSupply": "\u2014",
+      "currentVolume": "135K L",
+      "estimatedOutflow": "22k L/hr",
+      "supplySchedule": [
+        {
+          "time": "04:00 AM",
+          "duration": "2 hrs",
+          "status": "completed"
+        },
+        {
+          "time": "02:00 PM",
+          "duration": "2 hrs",
+          "status": "upcoming"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "name": "Ward 6 \u2014 Ambedkar Nagar",
+      "sector": "South Sector",
+      "currentLevel": 60,
+      "tankCapacity": 300000,
+      "pumpStatus": "Active",
+      "lastRefill": "Today, 06:00 AM",
+      "nextSupply": "12:30 PM",
+      "currentVolume": "180K L",
+      "estimatedOutflow": "25k L/hr",
+      "supplySchedule": [
+        {
+          "time": "06:00 AM",
+          "duration": "2 hrs",
+          "status": "completed"
+        },
+        {
+          "time": "12:30 PM",
+          "duration": "1.5 hrs",
+          "status": "upcoming"
+        },
+        {
+          "time": "06:30 PM",
+          "duration": "2 hrs",
+          "status": "upcoming"
+        }
+      ]
+    }
+  ],
+  "citizenData": {
+    "name": "Rajesh Kumar",
+    "wardId": 2
+  },
+  "notifications": [
+    {
+      "id": 1,
+      "type": "warning",
+      "title": "Planned Maintenance",
+      "message": "Section B-12 will experience low pressure tomorrow from 2 PM to 5 PM due to sensor calibration.",
+      "time": "2 hours ago",
+      "read": false
+    },
+    {
+      "id": 2,
+      "type": "success",
+      "title": "Quality Report Ready",
+      "message": "The weekly water purity report for Ward 12 North is now available. Standards: Excellent.",
+      "time": "5 hours ago",
+      "read": false
+    },
+    {
+      "id": 3,
+      "type": "info",
+      "title": "Usage Milestone",
+      "message": "Your household consumption is 12% lower than the ward average this month. Great job!",
+      "time": "Yesterday",
+      "read": true
+    }
+  ],
+  "complaints": [
+    {
+      "id": 1043,
+      "wardId": 2,
+      "citizen": "Rajesh Kumar",
+      "category": "Contaminated Supply",
+      "description": "Water is muddy and yellow",
+      "address": "123 Main St",
+      "date": "Just now",
+      "urgency": "High",
+      "priority": "high",
+      "status": "In Progress",
+      "updates": [
+        {
+          "time": "Just now",
+          "message": "Complaint received. Municipal operator review in progress."
+        },
+        {
+          "time": "Just now",
+          "message": "Ticket details updated. Status: In Progress, Priority: high."
+        }
+      ]
+    },
+    {
+      "id": 1042,
+      "wardId": 4,
+      "citizen": "Rajesh Sharma",
+      "category": "Pipe Leakage",
+      "description": "Water leaking near the community park entrance gate.",
+      "address": "Plot 24, North Avenue Road",
+      "date": "Today, 08:15 AM",
+      "urgency": "High",
+      "priority": "high",
+      "status": "Pending",
+      "updates": [
+        {
+          "time": "Today, 08:15 AM",
+          "message": "Complaint registered."
+        }
+      ]
+    },
+    {
+      "id": 1041,
+      "wardId": 2,
+      "citizen": "Priya Patel",
+      "category": "Low Pressure",
+      "description": "Water pressure extremely low on 3rd floor. Unable to fill storage tank.",
+      "address": "Flat 302, Sector B",
+      "date": "Today, 07:30 AM",
+      "urgency": "Medium",
+      "priority": "medium",
+      "status": "In Progress",
+      "updates": [
+        {
+          "time": "Today, 07:30 AM",
+          "message": "Complaint registered and assigned to North Sector inspection team."
+        },
+        {
+          "time": "Today, 09:15 AM",
+          "message": "Technician dispatched to reservoir pressure control valve #04."
+        }
+      ]
+    },
+    {
+      "id": 1040,
+      "wardId": 5,
+      "citizen": "Amit Kumar",
+      "category": "No Supply Alert",
+      "description": "No water supply since morning. Please check mains.",
+      "address": "G-12, Sector D",
+      "date": "Yesterday, 09:00 PM",
+      "urgency": "High",
+      "priority": "high",
+      "status": "In Progress",
+      "updates": [
+        {
+          "time": "Yesterday, 09:00 PM",
+          "message": "Complaint registered."
+        }
+      ]
+    },
+    {
+      "id": 1039,
+      "wardId": 1,
+      "citizen": "Sunita Devi",
+      "category": "Contaminated Supply",
+      "description": "Muddy water output observed in tap flow.",
+      "address": "Line 3, Sector A",
+      "date": "Yesterday, 06:45 PM",
+      "urgency": "High",
+      "priority": "high",
+      "status": "In Progress",
+      "updates": [
+        {
+          "time": "Yesterday, 06:45 PM",
+          "message": "Complaint registered."
+        }
+      ]
+    },
+    {
+      "id": 1038,
+      "wardId": 3,
+      "citizen": "Vikram Singh",
+      "category": "Contaminated Supply",
+      "description": "Water smells heavily of bleach/chlorine.",
+      "address": "Shivaji Peth main road",
+      "date": "2 days ago",
+      "urgency": "Medium",
+      "priority": "medium",
+      "status": "Resolved",
+      "updates": [
+        {
+          "time": "2 days ago",
+          "message": "Complaint registered."
+        },
+        {
+          "time": "2 days ago",
+          "message": "Lab diagnostics report compiled. Chlorine level balanced. Ticket resolved."
+        }
+      ]
+    },
+    {
+      "id": 1037,
+      "wardId": 6,
+      "citizen": "Meena Joshi",
+      "category": "Meter Reading Issue",
+      "description": "Digital billing meter display is blank.",
+      "address": "Housing Block 4, Sector S",
+      "date": "3 days ago",
+      "urgency": "Low",
+      "priority": "low",
+      "status": "Resolved",
+      "updates": [
+        {
+          "time": "3 days ago",
+          "message": "Complaint registered."
+        },
+        {
+          "time": "3 days ago",
+          "message": "Meter replaced and calibrated."
+        }
+      ]
+    }
+  ],
+  "adminStats": {
+    "currentOutput": "1.2M",
+    "currentOutputUnit": "L/hr",
+    "currentOutputDelta": "+4.2% from peak",
+    "avgPressure": "4.2",
+    "avgPressureUnit": "Bar",
+    "avgPressureStatus": "Optimal range",
+    "systemHealth": "98%",
+    "systemHealthSensors": "124 sensors active",
+    "supplyEfficiency": 92,
+    "pressureVariance": 1.2,
+    "openComplaints": 24,
+    "resolvedComplaints": 142
+  },
+  "sensorNodes": [
+    {
+      "id": 1,
+      "x": 35,
+      "y": 45,
+      "status": "stable",
+      "label": "Node A-1"
+    },
+    {
+      "id": 2,
+      "x": 55,
+      "y": 60,
+      "status": "active",
+      "label": "Node B-3"
+    },
+    {
+      "id": 3,
+      "x": 48,
+      "y": 75,
+      "status": "critical",
+      "label": "Node C-2"
+    },
+    {
+      "id": 4,
+      "x": 70,
+      "y": 40,
+      "status": "stable",
+      "label": "Node D-1"
+    },
+    {
+      "id": 5,
+      "x": 25,
+      "y": 65,
+      "status": "active",
+      "label": "Node E-4"
+    }
+  ],
+  "schedulerEvents": [
+    {
+      "id": 1,
+      "day": "Tue",
+      "label": "Ward 12-B Flow",
+      "time": "07:30 - 10:30",
+      "status": "completed",
+      "top": 40,
+      "height": 80,
+      "colorClass": "border-primary text-primary bg-primary-container/20 hover:bg-primary-container/30"
+    },
+    {
+      "id": 2,
+      "day": "Wed",
+      "label": "Main Trunk Line",
+      "time": "08:00 - 12:00",
+      "status": "active",
+      "top": 53,
+      "height": 107,
+      "colorClass": "border-secondary text-secondary bg-secondary/10 shadow-lg shadow-secondary/5 ring-1 ring-secondary/20"
+    },
+    {
+      "id": 3,
+      "day": "Fri",
+      "label": "Maintenance",
+      "time": "15:00 - 17:30",
+      "status": "maintenance",
+      "top": 240,
+      "height": 67,
+      "colorClass": "border-tertiary text-tertiary bg-tertiary-container/20 hover:bg-tertiary-container/30"
+    },
+    {
+      "id": 4213512091,
+      "day": "Wed",
+      "label": "Ward 08",
+      "time": "09:00 - 11:30",
+      "status": "upcoming",
+      "top": 80,
+      "height": 66,
+      "colorClass": "border-primary text-primary bg-primary-container/20 hover:bg-primary-container/30"
+    },
+    {
+      "id": 1147712448,
+      "day": "Wed",
+      "label": "Ward 08",
+      "time": "09:00 - 11:00",
+      "status": "upcoming",
+      "top": 80,
+      "height": 53,
+      "colorClass": "border-primary text-primary bg-primary-container/20 hover:bg-primary-container/30"
+    },
+    {
+      "id": 447865201,
+      "day": "Wed",
+      "label": "Ward 08",
+      "time": "09:00 - 11:30",
+      "status": "upcoming",
+      "top": 80,
+      "height": 66,
+      "colorClass": "border-primary text-primary bg-primary-container/20 hover:bg-primary-container/30"
+    }
+  ],
+  "assignments": [
+    {
+      "id": 3866590814,
+      "name": "Ward 08 - Garden Colony",
+      "time": "Scheduled for Wed, 09:00",
+      "icon": "location_on"
+    },
+    {
+      "id": 871650258,
+      "name": "Ward 08 - Garden Colony",
+      "time": "Scheduled for Wed, 09:00",
+      "icon": "location_on"
+    },
+    {
+      "id": 1287143649,
+      "name": "Ward 08 - Garden Colony",
+      "time": "Scheduled for Wed, 09:00",
+      "icon": "location_on"
+    },
+    {
+      "id": 1,
+      "name": "Ward 04 - East Sector",
+      "time": "Tomorrow, 06:00 AM",
+      "icon": "location_on"
+    },
+    {
+      "id": 2,
+      "name": "Ward 18 - Industrial",
+      "time": "June 14, 11:30 PM",
+      "icon": "location_on"
+    }
+  ],
+  "municipalConfig": {
+    "pressureLimit": 5.5,
+    "reservoirLimit": 20,
+    "smsAlerts": true,
+    "leakSiren": true,
+    "autoShutoff": true,
+    "whatsappAlerts": true,
+    "emailReports": false,
+    "ecoMode": true,
+    "threshold": 350
+  }
+}

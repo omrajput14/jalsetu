@@ -1,23 +1,27 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
-const initialComplaints = [
-  { id: 1041, category: "Low Pressure", description: "Water pressure extremely low on 3rd floor. Unable to fill storage tank.", date: "Today, 07:30 AM", urgency: "Medium", status: "In Progress", updates: [
-    { time: "Today, 07:30 AM", message: "Complaint registered and assigned to North Sector inspection team." },
-    { time: "Today, 09:15 AM", message: "Technician dispatched to reservoir pressure control valve #04." },
-  ]},
-  { id: 1022, category: "Pipe Leakage", description: "Water leaking near the community park entrance gate.", date: "June 10, 2026", urgency: "High", status: "Resolved", updates: [
-    { time: "June 10, 08:00 AM", message: "Complaint registered." },
-    { time: "June 10, 11:30 AM", message: "Repair team patched the main bypass conduit." },
-    { time: "June 10, 04:00 PM", message: "Leak stopped and site cleared. Ticket marked resolved." },
-  ]},
-];
+import { fetchComplaints, createComplaint } from "../services/api";
 
 const CitizenComplaints = () => {
-  const [complaintsList, setComplaintsList] = useState(initialComplaints);
+  const [complaintsList, setComplaintsList] = useState([]);
   const [formData, setFormData] = useState({ category: "Pipe Leakage", urgency: "Medium", description: "", address: "" });
-  const [activeTicket, setActiveTicket] = useState(complaintsList[0]);
+  const [activeTicket, setActiveTicket] = useState(null);
   const [toasts, setToasts] = useState([]);
+
+  useEffect(() => {
+    const loadComplaints = async () => {
+      try {
+        const data = await fetchComplaints();
+        setComplaintsList(data);
+        if (data.length > 0) {
+          setActiveTicket(data[0]);
+        }
+      } catch (err) {
+        console.error("Failed to load complaints:", err);
+      }
+    };
+    loadComplaints();
+  }, []);
 
   const addToast = (message, type = "success") => {
     const id = Date.now();
@@ -27,28 +31,29 @@ const CitizenComplaints = () => {
     }, 4000);
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.description || !formData.address) {
       addToast("Please fill in all details", "error");
       return;
     }
-    const newTicket = {
-      id: Math.floor(Math.random() * 1000) + 2000,
-      category: formData.category,
-      description: formData.description,
-      address: formData.address,
-      urgency: formData.urgency,
-      date: "Just now",
-      status: "Pending",
-      updates: [
-        { time: "Just now", message: "Complaint received. Municipal operator review in progress." }
-      ]
-    };
-    setComplaintsList([newTicket, ...complaintsList]);
-    setActiveTicket(newTicket);
-    addToast("Your complaint has been successfully filed!", "success");
-    setFormData({ category: "Pipe Leakage", urgency: "Medium", description: "", address: "" });
+    try {
+      const newTicket = await createComplaint({
+        category: formData.category,
+        urgency: formData.urgency,
+        description: formData.description,
+        address: formData.address,
+        wardId: 2,
+        citizen: "Rajesh Kumar",
+      });
+      setComplaintsList([newTicket, ...complaintsList]);
+      setActiveTicket(newTicket);
+      addToast("Your complaint has been successfully filed!", "success");
+      setFormData({ category: "Pipe Leakage", urgency: "Medium", description: "", address: "" });
+    } catch (err) {
+      console.error(err);
+      addToast("Failed to file complaint", "error");
+    }
   };
 
   return (

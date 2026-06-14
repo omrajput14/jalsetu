@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { fetchConfig, updateConfig } from "../services/api";
 
 const CitizenSettings = () => {
   const [notifications, setNotifications] = useState({
@@ -11,6 +12,24 @@ const CitizenSettings = () => {
   const [threshold, setThreshold] = useState(350); // liters limit
   const [toasts, setToasts] = useState([]);
 
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const data = await fetchConfig();
+        setNotifications({
+          smsAlerts: data.smsAlerts ?? true,
+          whatsappAlerts: data.whatsappAlerts ?? true,
+          emailReports: data.emailReports ?? false,
+          ecoMode: data.ecoMode ?? true,
+        });
+        setThreshold(data.threshold ?? 350);
+      } catch (err) {
+        console.error("Failed to load citizen config:", err);
+      }
+    };
+    loadConfig();
+  }, []);
+
   const addToast = (message, type = "success") => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
@@ -19,13 +38,29 @@ const CitizenSettings = () => {
     }, 4000);
   };
 
-  const handleToggle = (key) => {
-    setNotifications((prev) => ({ ...prev, [key]: !prev[key] }));
+  const handleToggle = async (key) => {
+    const newVal = !notifications[key];
+    try {
+      const updated = await updateConfig({ [key]: newVal });
+      setNotifications((prev) => ({ ...prev, [key]: updated[key] ?? newVal }));
+    } catch (err) {
+      console.error(err);
+      addToast("Failed to update setting.", "error");
+    }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    addToast("Settings saved successfully!", "success");
+    try {
+      const updated = await updateConfig({
+        threshold: threshold,
+      });
+      setThreshold(updated.threshold ?? threshold);
+      addToast("Settings saved successfully!", "success");
+    } catch (err) {
+      console.error(err);
+      addToast("Failed to save settings.", "error");
+    }
   };
 
   return (

@@ -1,16 +1,6 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-
-const initialEvents = [
-  { id: 1, day: "Tue", label: "Ward 12-B Flow", time: "07:30 - 10:30", status: "completed", top: 40, height: 128, colorClass: "border-primary text-primary bg-primary-container/20 hover:bg-primary-container/30" },
-  { id: 2, day: "Wed", label: "Main Trunk Line", time: "08:00 - 12:00", status: "active", top: 80, height: 160, colorClass: "border-secondary text-secondary bg-secondary/10 shadow-lg shadow-secondary/5 ring-1 ring-secondary/20" },
-  { id: 3, day: "Fri", label: "Maintenance", time: "15:00 - 17:30", status: "maintenance", top: 240, height: 96, colorClass: "border-tertiary text-tertiary bg-tertiary-container/20 hover:bg-tertiary-container/30" },
-];
-
-const initialAssignments = [
-  { id: 1, name: "Ward 04 - East Sector", time: "Tomorrow, 06:00 AM", icon: "location_on" },
-  { id: 2, name: "Ward 18 - Industrial", time: "June 14, 11:30 PM", icon: "location_on" },
-];
+import { fetchScheduler, createSchedule, deleteSchedule } from "../services/api";
 
 const daysOfWeek = [
   { key: "Mon", label: "MON", num: 10 },
@@ -33,13 +23,27 @@ const timeSlots = [
 
 const SchedulerPage = () => {
   const [view, setView] = useState("calendar");
-  const [events, setEvents] = useState(initialEvents);
-  const [assignments, setAssignments] = useState(initialAssignments);
+  const [events, setEvents] = useState([]);
+  const [assignments, setAssignments] = useState([]);
   const [pressure, setPressure] = useState(4.2);
   const [autoNotify, setAutoNotify] = useState(true);
   const [weekOffset, setWeekOffset] = useState(0);
   const [toasts, setToasts] = useState([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+
+  useEffect(() => {
+    const loadSchedulerData = async () => {
+      try {
+        const data = await fetchScheduler();
+        setEvents(data.events || []);
+        setAssignments(data.assignments || []);
+      } catch (err) {
+        console.error("Failed to load scheduler data:", err);
+        addToast("Failed to load scheduled releases from backend.", "error");
+      }
+    };
+    loadSchedulerData();
+  }, []);
 
   // Quick setup form state
   const [formWard, setFormWard] = useState("Ward 12 - North Sector");
@@ -79,40 +83,23 @@ const SchedulerPage = () => {
     return Math.round(relativeHours * 26.6);
   };
 
-  const handleApplySchedule = (e, ward = formWard, start = formStart, end = formEnd, day = "Wed") => {
+  const handleApplySchedule = async (e, ward = formWard, start = formStart, end = formEnd, day = "Wed") => {
     if (e) e.preventDefault();
     if (!ward || !start || !end) {
       addToast("Please fill out all schedule parameters.", "error");
       return;
     }
 
-    const top = timeToPx(start);
-    const endTop = timeToPx(end);
-    const height = Math.max(40, endTop - top);
-
-    const newEvent = {
-      id: Date.now(),
-      day, // Add to selected column
-      label: ward.split(" - ")[0],
-      time: `${start} - ${end}`,
-      status: "upcoming",
-      top,
-      height,
-      colorClass: "border-primary text-primary bg-primary-container/20 hover:bg-primary-container/30",
-    };
-
-    setEvents((prev) => [...prev, newEvent]);
-
-    const newAssign = {
-      id: Date.now() + 1,
-      name: ward,
-      time: `Today, ${start} ${Number(start.split(":")[0]) >= 12 ? 'PM' : 'AM'}`,
-      icon: "location_on",
-    };
-    setAssignments((prev) => [newAssign, ...prev]);
-
-    addToast(`Schedule applied! Water distribution for ${ward} added to calendar.`, "success");
-    setShowCreateModal(false);
+    try {
+      const res = await createSchedule({ ward, start, end, day });
+      setEvents((prev) => [...prev, res.event]);
+      setAssignments((prev) => [res.assignment, ...prev]);
+      addToast(`Schedule applied! Water distribution for ${ward} added to calendar.`, "success");
+      setShowCreateModal(false);
+    } catch (err) {
+      console.error(err);
+      addToast("Failed to apply schedule.", "error");
+    }
   };
 
   const getWeekRange = () => {
@@ -262,24 +249,65 @@ const SchedulerPage = () => {
                               <div className="absolute top-24 left-0 right-0 h-[1px] bg-secondary shadow-[0_0_8px_#5de6ff] z-10 pointer-events-none" />
                             )}
 
-                            {/* Event Cards */}
-                            {dayEvents.map((evt) => (
-                              <motion.div
-                                key={evt.id}
-                                whileHover={{ scale: 1.02 }}
-                                className={`absolute left-1.5 right-1.5 border-l-4 rounded-r p-3 group cursor-pointer transition-all ${evt.colorClass}`}
-                                style={{ top: `${evt.top}px`, height: `${evt.height}px` }}
-                              >
-                                {evt.status === "active" && (
-                                  <div className="flex items-center gap-1.5 mb-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
-                                    <p className="font-bold text-[9px] uppercase tracking-wider">Active Now</p>
-                                  </div>
-                                )}
-                                <p className="font-bold text-xs truncate">{evt.label}</p>
-                                <p className="text-[10px] text-on-surface-variant mt-0.5">{evt.time}</p>
-                              </motion.div>
-                            ))}
+                             {/* Event Cards */}
+                             {(() => {
+                               // Sort dayEvents by top to compute overlap layout
+                               const sortedEvents = [...dayEvents].sort((a, b) => a.top - b.top);
+                               const columns = [];
+                               sortedEvents.forEach((event) => {
+                                 let placed = false;
+                                 for (let i = 0; i < columns.length; i++) {
+                                   const lastEventInCol = columns[i][columns[i].length - 1];
+                                   const overlaps = event.top < (lastEventInCol.top + lastEventInCol.height) &&
+                                                    (event.top + event.height) > lastEventInCol.top;
+                                   if (!overlaps) {
+                                     columns[i].push(event);
+                                     placed = true;
+                                     break;
+                                   }
+                                 }
+                                 if (!placed) {
+                                   columns.push([event]);
+                                 }
+                               });
+
+                               const eventPositions = {};
+                               columns.forEach((col, colIndex) => {
+                                 col.forEach((event) => {
+                                   eventPositions[event.id] = {
+                                     left: `${(colIndex / columns.length) * 100}%`,
+                                     width: `${(1 / columns.length) * 100}%`
+                                   };
+                                 });
+                               });
+
+                               return sortedEvents.map((evt) => {
+                                 const pos = eventPositions[evt.id] || { left: "0%", width: "100%" };
+                                 return (
+                                   <motion.div
+                                     key={evt.id}
+                                     whileHover={{ scale: 1.02 }}
+                                     className={`absolute border-l-4 rounded-r p-2 group cursor-pointer transition-all ${evt.colorClass}`}
+                                     style={{ 
+                                       left: `calc(${pos.left} + 2px)`, 
+                                       width: `calc(${pos.width} - 4px)`, 
+                                       top: `${evt.top}px`, 
+                                       height: `${evt.height}px`,
+                                       zIndex: evt.status === "active" ? 20 : 10
+                                     }}
+                                   >
+                                     {evt.status === "active" && (
+                                       <div className="flex items-center gap-1 mb-0.5">
+                                         <span className="w-1.5 h-1.5 rounded-full bg-secondary animate-pulse" />
+                                         <p className="font-bold text-[8px] uppercase tracking-wider">Active</p>
+                                       </div>
+                                     )}
+                                     <p className="font-bold text-xs truncate">{evt.label}</p>
+                                     <p className="text-[9px] text-on-surface-variant mt-0.5">{evt.time}</p>
+                                   </motion.div>
+                                 );
+                               });
+                             })()}
                           </div>
                         );
                       })}
@@ -318,9 +346,15 @@ const SchedulerPage = () => {
                         </td>
                         <td className="p-4 text-right">
                           <button
-                            onClick={() => {
-                              setEvents((prev) => prev.filter((e) => e.id !== evt.id));
-                              addToast(`Schedule for ${evt.label} cancelled.`, "warning");
+                            onClick={async () => {
+                              try {
+                                await deleteSchedule(evt.id);
+                                setEvents((prev) => prev.filter((e) => e.id !== evt.id));
+                                addToast(`Schedule for ${evt.label} cancelled.`, "warning");
+                              } catch (err) {
+                                console.error(err);
+                                addToast("Failed to cancel schedule.", "error");
+                              }
                             }}
                             className="px-3 py-1.5 bg-error-container/20 text-error hover:bg-error/20 rounded-lg text-xs font-semibold cursor-pointer transition-colors border border-error/30"
                           >

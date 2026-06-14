@@ -2,7 +2,8 @@ import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { citizenData, notifications } from "../data/mockData";
+import { citizenData as localCitizenData, notifications } from "../data/mockData";
+import { fetchWards } from "../services/api";
 
 const weeklyData = [
   { name: "Mon", usage: 180 },
@@ -24,13 +25,26 @@ const monthlyData = [
 const CitizenPortal = () => {
   const [chartTab, setChartTab] = useState("week");
   const [countdown, setCountdown] = useState(9912); // 02:45:12
-  const ward = citizenData.ward;
+  const [ward, setWard] = useState(localCitizenData.ward);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setCountdown((prev) => (prev > 0 ? prev - 1 : 0));
     }, 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const loadWard = async () => {
+      try {
+        const data = await fetchWards();
+        const myWard = data.find((w) => w.id === 2);
+        if (myWard) setWard(myWard);
+      } catch (err) {
+        console.error("Failed to load ward details from backend:", err);
+      }
+    };
+    loadWard();
   }, []);
 
   const formatTime = (s) => {

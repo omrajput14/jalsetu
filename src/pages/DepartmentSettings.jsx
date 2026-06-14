@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { fetchConfig, updateConfig } from "../services/api";
 
 const DepartmentSettings = () => {
   const [config, setConfig] = useState({
@@ -11,6 +12,18 @@ const DepartmentSettings = () => {
   });
   const [toasts, setToasts] = useState([]);
 
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const data = await fetchConfig();
+        setConfig(data);
+      } catch (err) {
+        console.error("Failed to load config:", err);
+      }
+    };
+    loadConfig();
+  }, []);
+
   const addToast = (message, type = "success") => {
     const id = Date.now();
     setToasts((prev) => [...prev, { id, message, type }]);
@@ -19,13 +32,30 @@ const DepartmentSettings = () => {
     }, 4000);
   };
 
-  const handleToggle = (key) => {
-    setConfig((prev) => ({ ...prev, [key]: !prev[key] }));
+  const handleToggle = async (key) => {
+    const newVal = !config[key];
+    try {
+      const updated = await updateConfig({ [key]: newVal });
+      setConfig(updated);
+    } catch (err) {
+      console.error(err);
+      addToast("Failed to update setting.", "error");
+    }
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
-    addToast("Municipal settings saved successfully!", "success");
+    try {
+      const updated = await updateConfig({
+        pressureLimit: config.pressureLimit,
+        reservoirLimit: config.reservoirLimit,
+      });
+      setConfig(updated);
+      addToast("Municipal settings saved successfully!", "success");
+    } catch (err) {
+      console.error(err);
+      addToast("Failed to save settings.", "error");
+    }
   };
 
   return (

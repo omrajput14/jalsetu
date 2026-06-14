@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
-import { adminStats, wards, complaints, sensorNodes } from "../data/mockData";
+import { adminStats, wards as localWards, complaints, sensorNodes } from "../data/mockData";
+import { fetchWards, triggerFlush } from "../services/api";
 
 const DepartmentPortal = () => {
   const [zoom, setZoom] = useState(1);
@@ -11,6 +12,7 @@ const DepartmentPortal = () => {
   const [filterSector, setFilterSector] = useState("All");
   const [sortBy, setSortBy] = useState("default");
   const [toasts, setToasts] = useState([]);
+  const [wardsList, setWardsList] = useState(localWards);
 
   const addToast = (message, type = "success") => {
     const id = Date.now();
@@ -20,19 +22,36 @@ const DepartmentPortal = () => {
     }, 4000);
   };
 
+  const loadWards = async () => {
+    try {
+      const data = await fetchWards();
+      setWardsList(data);
+    } catch (err) {
+      console.error("Failed to load wards from backend:", err);
+    }
+  };
+
+  useEffect(() => {
+    loadWards();
+  }, []);
+
   const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 2));
   const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 1));
   const handleReset = () => { setZoom(1); setPosition({ x: 0, y: 0 }); setSelectedNode(null); };
 
-  const handleFlushNode = (nodeLabel) => {
+  const handleFlushNode = async (nodeLabel) => {
     setFlushingNode(true);
-    setTimeout(() => {
+    try {
+      const result = await triggerFlush(nodeLabel);
       setFlushingNode(false);
-      addToast(`Valve flush diagnostics on ${nodeLabel} completed. System pressure stabilized.`, "success");
-    }, 1500);
+      addToast(result.message || `Valve flush diagnostics on ${nodeLabel} completed.`, "success");
+    } catch (err) {
+      setFlushingNode(false);
+      addToast(`Failed to flush node ${nodeLabel}.`, "error");
+    }
   };
 
-  const filteredSortedWards = wards
+  const filteredSortedWards = wardsList
     .filter((w) => filterSector === "All" || w.sector === filterSector)
     .sort((a, b) => {
       if (sortBy === "level-desc") return b.currentLevel - a.currentLevel;
