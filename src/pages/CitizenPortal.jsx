@@ -28,9 +28,7 @@ const CitizenPortal = () => {
   const [countdown, setCountdown] = useState(9912); // 02:45:12
   const [ward, setWard] = useState(localCitizenData.ward);
   const [myNotifications, setMyNotifications] = useState(notifications);
-  const [paymentStatus, setPaymentStatus] = useState(() => {
-    return localStorage.getItem("jalsetu_bill_paid") === "true" ? "Paid" : "Unpaid";
-  });
+  const [paymentStatus, setPaymentStatus] = useState("Unpaid");
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
 
@@ -360,16 +358,6 @@ const CitizenPortal = () => {
                   <span className="material-symbols-outlined text-lg">verified_user</span>
                   Bill Paid Successfully
                 </div>
-                <button
-                  onClick={() => {
-                    localStorage.removeItem("jalsetu_bill_paid");
-                    setPaymentStatus("Unpaid");
-                    setPaymentMessage("");
-                  }}
-                  className="text-[10px] text-outline hover:text-on-surface-variant underline transition-colors cursor-pointer"
-                >
-                  Reset Status (Debug)
-                </button>
               </div>
             )}
           </div>
