@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchComplaints, createComplaint } from "../services/api";
+import posthog from "posthog-js";
 
 const CitizenComplaints = () => {
   const [complaintsList, setComplaintsList] = useState([]);
@@ -48,6 +49,13 @@ const CitizenComplaints = () => {
       });
       setComplaintsList([newTicket, ...complaintsList]);
       setActiveTicket(newTicket);
+      
+      posthog.capture('complaint_filed', {
+        category: formData.category,
+        urgency: formData.urgency,
+        ticket_id: newTicket.id
+      });
+
       addToast("Your complaint has been successfully filed!", "success");
       setFormData({ category: "Pipe Leakage", urgency: "Medium", description: "", address: "" });
     } catch (err) {

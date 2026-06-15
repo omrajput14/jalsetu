@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { citizenData as localCitizenData, notifications } from "../data/mockData";
 import { fetchWards, fetchPaymentKey, createPaymentOrder, verifyPayment } from "../services/api";
+import posthog from "posthog-js";
 
 const weeklyData = [
   { name: "Mon", usage: 180 },
@@ -46,6 +47,13 @@ const CitizenPortal = () => {
       
       const { order } = orderRes;
       
+      posthog.capture('payment_initiated', {
+        amount: 412.50,
+        currency: 'INR',
+        order_id: order.id,
+        receipt: 'receipt_bill_062026'
+      });
+      
       const options = {
         key: key,
         amount: order.amount,
@@ -68,6 +76,13 @@ const CitizenPortal = () => {
               setPaymentStatus("Paid");
               localStorage.setItem("jalsetu_bill_paid", "true");
               setPaymentMessage("Payment Successful! Thank you.");
+              
+              posthog.capture('payment_successful', {
+                amount: 412.50,
+                currency: 'INR',
+                order_id: response.razorpay_order_id,
+                payment_id: response.razorpay_payment_id
+              });
               
               const newNotification = {
                 id: Date.now(),

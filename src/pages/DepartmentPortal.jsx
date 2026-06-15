@@ -5,6 +5,7 @@ import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
 import L from "leaflet";
 import { adminStats, wards as localWards, complaints, sensorNodes } from "../data/mockData";
 import { fetchWards, triggerFlush } from "../services/api";
+import posthog from "posthog-js";
 
 const DepartmentPortal = () => {
   const [zoom, setZoom] = useState(1);
@@ -61,9 +62,22 @@ const DepartmentPortal = () => {
     try {
       const result = await triggerFlush(nodeLabel);
       setFlushingNode(false);
+      
+      posthog.capture('valve_flushed', {
+        node_label: nodeLabel,
+        status: 'success'
+      });
+
       addToast(result.message || `Valve flush diagnostics on ${nodeLabel} completed.`, "success");
     } catch (err) {
       setFlushingNode(false);
+      
+      posthog.capture('valve_flushed', {
+        node_label: nodeLabel,
+        status: 'failed',
+        error: err.message
+      });
+
       addToast(`Failed to flush node ${nodeLabel}.`, "error");
     }
   };
