@@ -130,6 +130,12 @@ Designed to give water consumers insight into telemetry data, payments, support 
     <td><img src="images/Screenshot 2026-06-15 at 7.10.57 PM.png" alt="Grievances" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
     <td><img src="images/Screenshot 2026-06-15 at 7.11.11 PM.png" alt="Settings" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
   </tr>
+  <tr>
+    <td colspan="2"><p align="center"><b>Secure Razorpay Checkout & Payment Confirmation Gateway</b></p></td>
+  </tr>
+  <tr>
+    <td colspan="2"><p align="center"><img src="images/Screenshot 2026-06-15 at 7.47.34 PM.png" alt="Razorpay Checkout Success" width="75%" style="border-radius: 8px; border: 1px solid #2d3748;" /></p></td>
+  </tr>
 </table>
 
 ### 🏢 Municipal Command Dashboard
