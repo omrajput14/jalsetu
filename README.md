@@ -53,6 +53,13 @@ Citizens gain real-time transparency into local reservoir levels, consumption st
 * **Grievance Audit Center**: Central pipeline showing open, in-progress, and resolved citizen reports.
 * **Department Configuration Controls**: Toggles for Leak Sirens, Eco Mode, Auto Shutoffs, and threshold limits.
 
+### 🔒 Security, Access Control & Privacy
+* **JWT Access Security Dependency**: Token validation (`get_current_user`) dynamically extracts and verifies bearer headers on all sensitive routes.
+* **Role-Based Access Control (RBAC)**: Operator-only authorization enforced for pump triggers, calendar schedules, and valve diagnostics.
+* **Dynamic Consumer Context Sync**: Dynamic ward telemetry and Razorpay payment prefill are fed directly from the active session.
+* **Data Isolation Safeguards**: Isolation filters ensure citizens only read/write their own complaints, while staff access the full grid.
+* **Granular Policy Gateways**: Split permissions allow citizens to toggle personal saving modes, but restrict line overrides to operators.
+
 ---
 
 ## 🏗️ System Architecture
@@ -224,23 +231,25 @@ To ensure uninterrupted operations during network failures or API timeouts, JalS
 ### 🚰 Water Reservoirs & Schedulers
 | Method | Route | Description | Auth Required | Payload |
 | :--- | :--- | :--- | :---: | :--- |
-| `GET` | `/api/wards` | Fetch storage and pressure details of all wards | No | None |
-| `PUT` | `/api/wards/{id}` | Update telemetry of a specific reservoir | Yes | `{"currentLevel": 85, "pumpStatus": "ON"}` |
-| `POST` | `/api/schedules` | Set a supply schedule | Yes | `{"ward": "", "start": "", "end": "", "day": ""}` |
+| `GET` | `/api/wards` | Fetch storage and pressure details of all wards | Yes (Bearer JWT) | None |
+| `PUT` | `/api/wards/{id}` | Update telemetry of a specific reservoir | Yes (Operator Role) | `{"currentLevel": 85, "pumpStatus": "ON"}` |
+| `GET` | `/api/scheduler` | Fetch events and allocations | Yes (Bearer JWT) | None |
+| `POST` | `/api/scheduler` | Set a supply schedule | Yes (Operator Role) | `{"ward": "", "start": "", "end": "", "day": ""}` |
+| `DELETE` | `/api/scheduler/{id}` | Cancel scheduled supply window | Yes (Operator Role) | None |
 
 ### 📋 Grievances Log
 | Method | Route | Description | Auth Required | Payload |
 | :--- | :--- | :--- | :---: | :--- |
-| `GET` | `/api/complaints` | Fetch filed citizen issues | No | None |
-| `POST` | `/api/complaints` | File a new complaint ticket | No | `{"category": "", "urgency": "", "description": "", "address": "", "wardId": 1, "citizen": ""}` |
-| `PUT` | `/api/complaints/{id}` | Resolve/escalate complaint | Yes | `{"status": "In Progress", "priority": "high"}` |
+| `GET` | `/api/complaints` | Fetch filed issues (Citizen: own only / Operator: all) | Yes (Bearer JWT) | None |
+| `POST` | `/api/complaints` | File a new complaint ticket | Yes (Bearer JWT) | `{"category": "", "urgency": "", "description": "", "address": "", "wardId": 1, "citizen": ""}` |
+| `PUT` | `/api/complaints/{id}` | Resolve/escalate complaint | Yes (Operator Role) | `{"status": "In Progress", "priority": "high"}` |
 
 ### 💳 Financial Billings
 | Method | Route | Description | Auth Required | Payload |
 | :--- | :--- | :--- | :---: | :--- |
-| `GET` | `/api/payments/key` | Fetch active Razorpay key credentials | No | None |
-| `POST` | `/api/payments/create-order` | Request a verified merchant transaction order | Yes | `{"amount": 500, "receipt": "bill_123"}` |
-| `POST` | `/api/payments/verify` | Verify payment status | Yes | `{"razorpay_order_id": "", "razorpay_payment_id": "", "razorpay_signature": ""}` |
+| `GET` | `/api/payments/key` | Fetch active Razorpay key credentials | Yes (Bearer JWT) | None |
+| `POST` | `/api/payments/create-order` | Request a verified merchant transaction order | Yes (Bearer JWT) | `{"amount": 500, "receipt": "bill_123"}` |
+| `POST` | `/api/payments/verify` | Verify payment status | Yes (Bearer JWT) | `{"razorpay_order_id": "", "razorpay_payment_id": "", "razorpay_signature": ""}` |
 
 ---
 
