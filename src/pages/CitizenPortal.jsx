@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { citizenData as localCitizenData, notifications } from "../data/mockData";
-import { fetchWards } from "../services/api";
+import { fetchWards, fetchPaymentKey, createPaymentOrder, verifyPayment } from "../services/api";
 
 const weeklyData = [
   { name: "Mon", usage: 180 },
@@ -26,6 +26,93 @@ const CitizenPortal = () => {
   const [chartTab, setChartTab] = useState("week");
   const [countdown, setCountdown] = useState(9912); // 02:45:12
   const [ward, setWard] = useState(localCitizenData.ward);
+  const [myNotifications, setMyNotifications] = useState(notifications);
+  const [paymentStatus, setPaymentStatus] = useState(() => {
+    return localStorage.getItem("jalsetu_bill_paid") === "true" ? "Paid" : "Unpaid";
+  });
+  const [paymentLoading, setPaymentLoading] = useState(false);
+  const [paymentMessage, setPaymentMessage] = useState("");
+
+  const handlePayment = async () => {
+    setPaymentLoading(true);
+    setPaymentMessage("");
+    try {
+      const { key } = await fetchPaymentKey();
+      
+      const orderRes = await createPaymentOrder(412, "receipt_bill_062026");
+      if (!orderRes.success) {
+        throw new Error("Failed to create order");
+      }
+      
+      const { order } = orderRes;
+      
+      const options = {
+        key: key,
+        amount: order.amount,
+        currency: order.currency,
+        name: "JalSetu Payments",
+        description: "Water Bill Payment - June 2026",
+        order_id: order.id,
+        handler: async function (response) {
+          try {
+            setPaymentLoading(true);
+            setPaymentMessage("Verifying payment...");
+            
+            const verifyRes = await verifyPayment({
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            });
+            
+            if (verifyRes.success) {
+              setPaymentStatus("Paid");
+              localStorage.setItem("jalsetu_bill_paid", "true");
+              setPaymentMessage("Payment Successful! Thank you.");
+              
+              const newNotification = {
+                id: Date.now(),
+                type: "success",
+                title: "Bill Payment Successful",
+                message: `Your payment of ₹412 for June 2026 was processed successfully. Receipt: ${response.razorpay_payment_id}`,
+                time: "Just now",
+                read: false
+              };
+              setMyNotifications(prev => [newNotification, ...prev]);
+            } else {
+              setPaymentMessage("Verification failed. Please contact support.");
+            }
+          } catch (err) {
+            console.error("Verification error:", err);
+            setPaymentMessage("Verification failed: " + err.message);
+          } finally {
+            setPaymentLoading(false);
+          }
+        },
+        prefill: {
+          name: "Rajesh Kumar",
+          email: "rajesh.kumar@example.com",
+          contact: "9988776655",
+        },
+        theme: {
+          color: "#0ea5e9",
+        },
+        modal: {
+          ondismiss: function () {
+            setPaymentLoading(false);
+            setPaymentMessage("Payment canceled by user.");
+          }
+        }
+      };
+      
+      const rzp = new window.Razorpay(options);
+      rzp.open();
+      
+    } catch (err) {
+      console.error("Payment initialization error:", err);
+      setPaymentMessage("Payment failed to initialize: " + err.message);
+      setPaymentLoading(false);
+    }
+  };
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -143,7 +230,7 @@ const CitizenPortal = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
-          className="col-span-12 lg:col-span-7 glass-card rounded-2xl p-8 h-[360px] flex flex-col"
+          className="col-span-12 lg:col-span-8 glass-card rounded-2xl p-8 h-[360px] flex flex-col"
         >
           <div className="flex justify-between items-start mb-6">
             <h3 className="font-heading text-2xl font-medium text-on-surface">Consumption Analytics</h3>
@@ -189,6 +276,90 @@ const CitizenPortal = () => {
           </div>
         </motion.div>
 
+        {/* Quick Pay Bill Widget */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25 }}
+          className="col-span-12 lg:col-span-4 glass-card rounded-2xl p-8 flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex justify-between items-start mb-6">
+              <div>
+                <span className="material-symbols-outlined text-tertiary text-4xl mb-2">payments</span>
+                <h3 className="font-heading text-2xl font-medium text-on-surface">Water Utility Bill</h3>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                paymentStatus === "Paid" ? "bg-tertiary/20 text-tertiary border border-tertiary/30" : "bg-yellow-400/20 text-yellow-400 border border-yellow-500/30"
+              }`}>
+                {paymentStatus}
+              </span>
+            </div>
+
+            <div className="space-y-4 mb-8">
+              <div className="flex justify-between border-b border-outline-variant/10 pb-2">
+                <span className="text-on-surface-variant text-sm">Billing Cycle</span>
+                <span className="text-on-surface text-sm font-medium">June 2026</span>
+              </div>
+              <div className="flex justify-between border-b border-outline-variant/10 pb-2">
+                <span className="text-on-surface-variant text-sm">Due Date</span>
+                <span className="text-on-surface text-sm font-medium">June 30, 2026</span>
+              </div>
+              <div className="flex justify-between items-end pt-2">
+                <span className="text-on-surface-variant text-sm">Amount Due</span>
+                <span className="font-heading text-3xl font-bold text-primary">₹412.50</span>
+              </div>
+            </div>
+          </div>
+
+          <div className="space-y-3">
+            {paymentMessage && (
+              <p className={`text-xs text-center font-medium ${
+                paymentMessage.includes("Successful") ? "text-tertiary animate-pulse" : "text-error"
+              }`}>
+                {paymentMessage}
+              </p>
+            )}
+
+            {paymentStatus === "Unpaid" ? (
+              <button
+                onClick={handlePayment}
+                disabled={paymentLoading}
+                className="w-full py-3 bg-primary hover:bg-primary/95 text-on-primary font-semibold rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg glow-primary hover:scale-[1.02] active:scale-95 disabled:opacity-50 disabled:scale-100 disabled:pointer-events-none cursor-pointer"
+              >
+                {paymentLoading ? (
+                  <>
+                    <span className="animate-spin h-5 w-5 border-2 border-on-primary border-t-transparent rounded-full" />
+                    Processing...
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-lg">credit_card</span>
+                    Pay Bill Now
+                  </>
+                )}
+              </button>
+            ) : (
+              <div className="flex flex-col items-center gap-2">
+                <div className="w-full py-3 bg-tertiary/15 border border-tertiary/30 text-tertiary font-semibold rounded-xl flex items-center justify-center gap-2">
+                  <span className="material-symbols-outlined text-lg">verified_user</span>
+                  Bill Paid Successfully
+                </div>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem("jalsetu_bill_paid");
+                    setPaymentStatus("Unpaid");
+                    setPaymentMessage("");
+                  }}
+                  className="text-[10px] text-outline hover:text-on-surface-variant underline transition-colors cursor-pointer"
+                >
+                  Reset Status (Debug)
+                </button>
+              </div>
+            )}
+          </div>
+        </motion.div>
+
         {/* Supply Schedule */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -226,14 +397,14 @@ const CitizenPortal = () => {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.4 }}
-          className="col-span-12 glass-card rounded-2xl p-8"
+          className="col-span-12 lg:col-span-7 glass-card rounded-2xl p-8"
         >
           <div className="flex justify-between items-center mb-8">
             <h3 className="font-heading text-2xl font-medium text-on-surface">Recent Notifications</h3>
             <a className="text-primary text-xs font-semibold hover:underline" href="#">View All</a>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {notifications.map((n) => {
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {myNotifications.map((n) => {
               const iconMap = { warning: "warning", success: "check_circle", info: "info" };
               const colorMap = { warning: "bg-error-container/20 text-error", success: "bg-tertiary-container/20 text-tertiary", info: "bg-secondary-container/20 text-secondary" };
               return (

@@ -87,3 +87,29 @@ export const updateConfig = async (updates) => {
   if (!res.ok) throw new Error("Failed to update config");
   return res.json();
 };
+
+export const fetchPaymentKey = async () => {
+  const res = await fetch("/api/payments/key");
+  if (!res.ok) throw new Error("Failed to fetch payment key");
+  return res.json();
+};
+
+export const createPaymentOrder = async (amount, receipt) => {
+  const res = await fetch("/api/payments/create-order", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ amount, receipt }),
+  });
+  if (!res.ok) throw new Error("Failed to create order");
+  return res.json();
+};
+
+export const verifyPayment = async (payload) => {
+  const res = await fetch("/api/payments/verify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) throw new Error("Failed to verify payment");
+  return res.json();
+};

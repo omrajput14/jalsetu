@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
@@ -22,6 +22,11 @@ const categoryData = [
 
 const CitizenAnalytics = () => {
   const [chartMode, setChartMode] = useState("liters");
+  const [billPaid, setBillPaid] = useState(false);
+
+  useEffect(() => {
+    setBillPaid(localStorage.getItem("jalsetu_bill_paid") === "true");
+  }, []);
 
   // Calculate mock cost based on usage (₹1.50 per liter)
   const chartData = rawUsageData.map((d) => ({
@@ -60,8 +65,10 @@ const CitizenAnalytics = () => {
         </div>
         <div className="glass-card p-6 rounded-2xl">
           <p className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-widest mb-2">Est. Next Bill</p>
-          <p className="font-heading text-3xl font-bold text-tertiary">₹412.50</p>
-          <p className="text-xs text-tertiary mt-2">On track for eco-discount (5%)</p>
+          <p className="font-heading text-3xl font-bold text-tertiary">{billPaid ? "₹0.00" : "₹412.50"}</p>
+          <p className={`text-xs mt-2 ${billPaid ? "text-tertiary" : "text-yellow-400"}`}>
+            {billPaid ? "Paid (June Cycle)" : "Due by June 30"}
+          </p>
         </div>
         <div className="glass-card p-6 rounded-2xl">
           <p className="text-[10px] font-semibold text-on-surface-variant uppercase tracking-widest mb-2">Purity Rating</p>

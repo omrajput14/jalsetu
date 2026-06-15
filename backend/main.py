@@ -1,7 +1,8 @@
 import os
 import requests
 import resend
-from fastapi import FastAPI, HTTPException
+import razorpay
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
@@ -16,12 +17,18 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 RESEND_API_KEY = os.getenv("RESEND_API_KEY")
 FROM_EMAIL = os.getenv("FROM_EMAIL", "onboarding@resend.dev")
 MSG91_AUTH_KEY = os.getenv("MSG91_AUTH_KEY")
+RAZORPAY_KEY_ID = os.getenv("RAZORPAY_KEY_ID")
+RAZORPAY_KEY_SECRET = os.getenv("RAZORPAY_KEY_SECRET")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Missing SUPABASE_URL or SUPABASE_KEY in .env")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
 resend.api_key = RESEND_API_KEY
+
+razorpay_client = None
+if RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET:
+    razorpay_client = razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
 
 # ─── Email Helpers ───────────────────────────────────────────────
 
@@ -388,3 +395,52 @@ def update_config(updates: ConfigUpdate):
 
     res = supabase.table("municipal_config").update(patch).eq("id", 1).execute()
     return snake_to_camel_config(res.data[0])
+
+
+# ─── Payments (Razorpay) ─────────────────────────────────────────
+
+@app.get("/api/payments/key")
+def get_payment_key():
+    if not RAZORPAY_KEY_ID:
+        raise HTTPException(status_code=500, detail="Razorpay key not configured")
+    return {"key": RAZORPAY_KEY_ID}
+
+class OrderCreate(BaseModel):
+    amount: int  # Amount in INR
+    receipt: str
+
+@app.post("/api/payments/create-order")
+def create_payment_order(order: OrderCreate):
+    if not razorpay_client:
+        raise HTTPException(status_code=500, detail="Razorpay keys not configured")
+    
+    try:
+        data = {
+            "amount": order.amount * 100,  # Razorpay expects paise
+            "currency": "INR",
+            "receipt": order.receipt
+        }
+        rp_order = razorpay_client.order.create(data=data)
+        return {"success": True, "order": rp_order}
+    except Exception as e:
+        print(f"[Razorpay Error] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/payments/verify")
+async def verify_payment(req: Request):
+    if not razorpay_client:
+        raise HTTPException(status_code=500, detail="Razorpay keys not configured")
+    
+    body = await req.json()
+    try:
+        # Check signature
+        razorpay_client.utility.verify_payment_signature({
+            'razorpay_order_id': body.get('razorpay_order_id'),
+            'razorpay_payment_id': body.get('razorpay_payment_id'),
+            'razorpay_signature': body.get('razorpay_signature')
+        })
+        return {"success": True, "message": "Payment verified successfully"}
+    except razorpay.errors.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid payment signature")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
