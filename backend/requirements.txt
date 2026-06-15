@@ -6,3 +6,4 @@ requests
 razorpay
 pyjwt
 bcrypt
+resend
