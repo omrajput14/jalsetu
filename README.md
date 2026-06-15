@@ -231,7 +231,7 @@ To ensure uninterrupted operations during network failures or API timeouts, JalS
 ### 🚰 Water Reservoirs & Schedulers
 | Method | Route | Description | Auth Required | Payload |
 | :--- | :--- | :--- | :---: | :--- |
-| `GET` | `/api/wards` | Fetch storage and pressure details of all wards | Yes (Bearer JWT) | None |
+| `GET` | `/api/wards` | Fetch storage and pressure details of all wards | No | None |
 | `PUT` | `/api/wards/{id}` | Update telemetry of a specific reservoir | Yes (Operator Role) | `{"currentLevel": 85, "pumpStatus": "ON"}` |
 | `GET` | `/api/scheduler` | Fetch events and allocations | Yes (Bearer JWT) | None |
 | `POST` | `/api/scheduler` | Set a supply schedule | Yes (Operator Role) | `{"ward": "", "start": "", "end": "", "day": ""}` |

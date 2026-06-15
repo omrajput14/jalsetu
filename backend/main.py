@@ -280,7 +280,7 @@ def check_jwt_secret():
 # ─── Wards ──────────────────────────────────────────────────────
 
 @app.get("/api/wards")
-def get_wards(current_user: dict = Depends(get_current_user)):
+def get_wards():
     res = supabase.table("wards").select("*").order("id").execute()
     return [ward_to_camel(w) for w in res.data]
 
