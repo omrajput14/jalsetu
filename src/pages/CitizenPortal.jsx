@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { citizenData as localCitizenData, notifications } from "../data/mockData";
 import { fetchWards, fetchPaymentKey, createPaymentOrder, verifyPayment } from "../services/api";
+import { useAuth } from "../services/AuthContext";
 import posthog from "posthog-js";
 
 const weeklyData = [
@@ -24,6 +25,7 @@ const monthlyData = [
 ];
 
 const CitizenPortal = () => {
+  const { user } = useAuth();
   const [chartTab, setChartTab] = useState("week");
   const [countdown, setCountdown] = useState(9912); // 02:45:12
   const [ward, setWard] = useState(localCitizenData.ward);
@@ -102,9 +104,9 @@ const CitizenPortal = () => {
           }
         },
         prefill: {
-          name: "Rajesh Kumar",
-          email: "rajesh.kumar@example.com",
-          contact: "9988776655",
+          name: user?.name || "Anonymous Citizen",
+          email: user?.email || "citizen@jalsetu.in",
+          contact: user?.phone || "9988776655",
         },
         theme: {
           color: "#0ea5e9",
@@ -138,14 +140,17 @@ const CitizenPortal = () => {
     const loadWard = async () => {
       try {
         const data = await fetchWards();
-        const myWard = data.find((w) => w.id === 2);
+        const activeWardId = user?.ward_id || 2;
+        const myWard = data.find((w) => w.id === activeWardId);
         if (myWard) setWard(myWard);
       } catch (err) {
         console.error("Failed to load ward details from backend:", err);
       }
     };
-    loadWard();
-  }, []);
+    if (user) {
+      loadWard();
+    }
+  }, [user]);
 
   const formatTime = (s) => {
     const h = Math.floor(s / 3600);
@@ -163,7 +168,7 @@ const CitizenPortal = () => {
       <header className="mb-12 flex justify-between items-end">
         <div>
           <p className="text-primary text-xs font-semibold uppercase tracking-widest mb-2">Live Monitoring</p>
-          <h1 className="font-heading text-5xl font-bold text-on-surface">Welcome back, Citizen</h1>
+          <h1 className="font-heading text-5xl font-bold text-on-surface">Welcome back, {user ? user.name : "Citizen"}</h1>
         </div>
         <div className="flex gap-4">
           <div className="glass-card px-6 py-4 rounded-xl flex items-center gap-4">

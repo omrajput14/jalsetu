@@ -1,9 +1,11 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchComplaints, createComplaint } from "../services/api";
+import { useAuth } from "../services/AuthContext";
 import posthog from "posthog-js";
 
 const CitizenComplaints = () => {
+  const { user } = useAuth();
   const [complaintsList, setComplaintsList] = useState([]);
   const [formData, setFormData] = useState({ category: "Pipe Leakage", urgency: "Medium", description: "", address: "" });
   const [activeTicket, setActiveTicket] = useState(null);
@@ -44,8 +46,9 @@ const CitizenComplaints = () => {
         urgency: formData.urgency,
         description: formData.description,
         address: formData.address,
-        wardId: 2,
-        citizen: "Rajesh Kumar",
+        wardId: user?.ward_id || 2,
+        citizen: user?.name || "Anonymous Citizen",
+        email: user?.email,
       });
       setComplaintsList([newTicket, ...complaintsList]);
       setActiveTicket(newTicket);

@@ -6,10 +6,10 @@ import jwt
 import bcrypt
 import json
 from datetime import datetime, timedelta
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException, Request, Depends, Header
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from dotenv import load_dotenv
 from supabase import create_client, Client
 
@@ -55,9 +55,10 @@ app = FastAPI(
     description="Smart Water Distribution Management Platform — powered by Supabase"
 )
 
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=ALLOWED_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -146,308 +147,6 @@ def event_to_camel(row: dict) -> dict:
         "height":     row["height"],
         "colorClass": row["color_class"],
     }
-
-
-# ─── Wards ──────────────────────────────────────────────────────
-
-@app.get("/api/wards")
-def get_wards():
-    res = supabase.table("wards").select("*").order("id").execute()
-    return [ward_to_camel(w) for w in res.data]
-
-@app.put("/api/wards/{ward_id}")
-def update_ward(ward_id: int, updates: WardUpdate):
-    patch = {}
-    if updates.currentLevel is not None:
-        patch["current_level"] = updates.currentLevel
-    if updates.pumpStatus is not None:
-        patch["pump_status"] = updates.pumpStatus
-    if updates.currentVolume is not None:
-        patch["current_volume"] = updates.currentVolume
-
-    if not patch:
-        raise HTTPException(status_code=400, detail="No fields to update")
-
-    res = supabase.table("wards").update(patch).eq("id", ward_id).execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Ward not found")
-    return ward_to_camel(res.data[0])
-
-
-# ─── Complaints ─────────────────────────────────────────────────
-
-@app.get("/api/complaints")
-def get_complaints():
-    res = supabase.table("complaints").select("*").order("id", desc=True).execute()
-    # Rename snake → camel for frontend
-    out = []
-    for c in res.data:
-        out.append({
-            "id":          c["id"],
-            "wardId":      c["ward_id"],
-            "citizen":     c["citizen"],
-            "category":    c["category"],
-            "description": c["description"],
-            "address":     c["address"],
-            "date":        c["date"],
-            "urgency":     c["urgency"],
-            "priority":    c["priority"],
-            "status":      c["status"],
-            "updates":     c["updates"] or [],
-        })
-    return out
-
-class ComplaintCreateWithEmail(ComplaintCreate):
-    email: Optional[str] = None
-
-@app.post("/api/complaints")
-def create_complaint(complaint: ComplaintCreateWithEmail):
-    new_ticket = {
-        "ward_id":     complaint.wardId,
-        "citizen":     complaint.citizen,
-        "category":    complaint.category,
-        "description": complaint.description,
-        "address":     complaint.address,
-        "date":        "Just now",
-        "urgency":     complaint.urgency,
-        "priority":    complaint.urgency.lower(),
-        "status":      "Pending",
-        "updates":     [{"time": "Just now", "message": "Complaint received. Municipal operator review in progress."}],
-    }
-    res = supabase.table("complaints").insert(new_ticket).execute()
-    c = res.data[0]
-    out = {"id": c["id"], "wardId": c["ward_id"], "citizen": c["citizen"], "category": c["category"], "description": c["description"], "address": c["address"], "date": c["date"], "urgency": c["urgency"], "priority": c["priority"], "status": c["status"], "updates": c["updates"]}
-    if complaint.email:
-        send_email(to=complaint.email, subject=f"JalSetu — Complaint #{c['id']} Received", html=complaint_filed_html(out))
-    return out
-
-class ComplaintUpdateWithEmail(ComplaintUpdate):
-    email: Optional[str] = None
-
-@app.put("/api/complaints/{complaint_id}")
-def update_complaint(complaint_id: int, updates: ComplaintUpdateWithEmail):
-    res = supabase.table("complaints").select("*").eq("id", complaint_id).execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Complaint not found")
-    existing_updates = res.data[0]["updates"] or []
-    existing_updates.append({"time": "Just now", "message": f"Status updated to {updates.status}, Priority: {updates.priority}."})
-    patch = {"status": updates.status, "priority": updates.priority, "updates": existing_updates}
-    res2 = supabase.table("complaints").update(patch).eq("id", complaint_id).execute()
-    c = res2.data[0]
-    out = {
-        "id": c["id"], "wardId": c["ward_id"], "citizen": c["citizen"], 
-        "category": c["category"], "description": c["description"],
-        "address": c["address"], "date": c["date"], "urgency": c["urgency"],
-        "priority": c["priority"], "status": c["status"], "updates": c["updates"],
-    }
-    if updates.email:
-        send_email(to=updates.email, subject=f"JalSetu — Complaint #{c['id']} Updated", html=complaint_updated_html(out))
-    return out
-
-
-# ─── Scheduler ──────────────────────────────────────────────────
-
-@app.get("/api/scheduler")
-def get_scheduler():
-    events_res  = supabase.table("scheduler_events").select("*").execute()
-    assigns_res = supabase.table("assignments").select("*").execute()
-    return {
-        "events":      [event_to_camel(e) for e in events_res.data],
-        "assignments": assigns_res.data,
-    }
-
-@app.post("/api/scheduler")
-def create_schedule(schedule: ScheduleCreate):
-    def time_to_px(t: str) -> int:
-        try:
-            h, m = map(int, t.split(":"))
-            return int(round((h + m / 60.0 - 6.0) * 26.6))
-        except:
-            return 80
-
-    top    = time_to_px(schedule.start)
-    height = max(40, time_to_px(schedule.end) - top)
-    event_id     = int(os.urandom(4).hex(), 16)
-    assignment_id = event_id + 1
-
-    new_event = {
-        "id":          event_id,
-        "day":         schedule.day,
-        "label":       schedule.ward.split(" - ")[0],
-        "time":        f"{schedule.start} - {schedule.end}",
-        "status":      "upcoming",
-        "top":         top,
-        "height":      height,
-        "color_class": "border-primary text-primary bg-primary-container/20 hover:bg-primary-container/30",
-    }
-    new_assignment = {
-        "id":   assignment_id,
-        "name": schedule.ward,
-        "time": f"Scheduled for {schedule.day}, {schedule.start}",
-        "icon": "location_on",
-    }
-
-    e_res = supabase.table("scheduler_events").insert(new_event).execute()
-    a_res = supabase.table("assignments").insert(new_assignment).execute()
-
-    return {
-        "event":      event_to_camel(e_res.data[0]),
-        "assignment": a_res.data[0],
-    }
-
-@app.delete("/api/scheduler/{event_id}")
-def delete_schedule(event_id: int):
-    res = supabase.table("scheduler_events").delete().eq("id", event_id).execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Schedule event not found")
-    return {"success": True, "detail": "Schedule cancelled successfully"}
-
-
-# ─── Email Endpoints ────────────────────────────────────────────
-
-class PurityReportRequest(BaseModel):
-    to: str
-    ward_name: str
-    ph_level: float = 7.2
-    turbidity: str = "0.4 NTU"
-    chlorine: str = "0.8 mg/L"
-    result: str = "Excellent"
-
-@app.post("/api/email/purity-report")
-def send_purity_report(req: PurityReportRequest):
-    sc = {"Excellent":"#6bd8cb","Good":"#89ceff","Fair":"#eab308","Poor":"#ff5252"}.get(req.result,"#bec8d2")
-    html = f"""<div style='font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0f1418;color:#dee3e9;padding:32px;border-radius:16px'><div style='text-align:center;margin-bottom:24px'><h1 style='color:#89ceff;font-size:28px;margin:0'>JalSetu</h1><p style='color:#bec8d2;font-size:13px'>Weekly Water Quality Report</p></div><div style='background:#1b2024;border-radius:12px;padding:24px;border:1px solid #3e4850'><h2 style='color:#89ceff;margin:0 0 8px'>💧 Purity Report — {req.ward_name}</h2><table style='width:100%;border-collapse:collapse;margin-top:16px'><tr><td style='padding:10px;color:#89ceff;font-weight:600'>pH Level</td><td style='padding:10px;color:#dee3e9'>{req.ph_level}</td><td style='padding:10px;color:#6bd8cb'>✓ Normal</td></tr><tr style='background:#252b2f'><td style='padding:10px;color:#89ceff;font-weight:600'>Turbidity</td><td style='padding:10px;color:#dee3e9'>{req.turbidity}</td><td style='padding:10px;color:#6bd8cb'>✓ Clear</td></tr><tr><td style='padding:10px;color:#89ceff;font-weight:600'>Chlorine</td><td style='padding:10px;color:#dee3e9'>{req.chlorine}</td><td style='padding:10px;color:#6bd8cb'>✓ Safe</td></tr></table><div style='margin-top:20px;padding:16px;background:#252b2f;border-radius:8px;border-left:4px solid {sc};text-align:center'><p style='margin:0;font-size:20px;font-weight:700;color:{sc}'>Overall: {req.result}</p></div></div><p style='color:#bec8d2;font-size:12px;text-align:center;margin-top:24px'>© 2024 JalSetu Technologies · Securing every drop</p></div>"""
-    send_email(to=req.to, subject=f"JalSetu — Weekly Water Quality Report · {req.ward_name}", html=html)
-    return {"success": True, "message": f"Purity report sent to {req.to}"}
-
-@app.post("/api/email/supply-alert")
-def send_supply_alert(to: str, ward_name: str, start_time: str):
-    html = f"""<div style='font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0f1418;color:#dee3e9;padding:32px;border-radius:16px'><div style='text-align:center;margin-bottom:24px'><h1 style='color:#89ceff;font-size:28px;margin:0'>JalSetu</h1></div><div style='background:#1b2024;border-radius:12px;padding:24px;border:1px solid #3e4850;text-align:center'><div style='font-size:48px;margin-bottom:16px'>💧</div><h2 style='color:#89ceff;margin:0 0 8px'>Water Supply Alert</h2><p style='color:#bec8d2'>Supply for <strong style='color:#dee3e9'>{ward_name}</strong> starts at</p><p style='font-size:36px;font-weight:800;color:#6bd8cb;margin:8px 0'>{start_time}</p><p style='color:#bec8d2;font-size:13px'>Please ensure your storage tanks are ready.</p></div><p style='color:#bec8d2;font-size:12px;text-align:center;margin-top:24px'>© 2024 JalSetu Technologies · Securing every drop</p></div>"""
-    send_email(to=to, subject=f"JalSetu — Water Supply Alert · {ward_name} at {start_time}", html=html)
-    return {"success": True, "message": f"Supply alert sent to {to}"}
-
-
-# ─── SMS Endpoints (MSG91) ──────────────────────────────────────
-
-class SMSRequest(BaseModel):
-    to: str
-    message: str
-
-@app.post("/api/notify/sms")
-def send_sms_alert(req: SMSRequest):
-    if not MSG91_AUTH_KEY:
-        raise HTTPException(status_code=500, detail="MSG91 API Key not configured")
-
-    payload = {
-        "sender": "JALSTU",
-        "route": "4",
-        "country": "91",
-        "sms": [
-            {
-                "message": req.message,
-                "to": [req.to]
-            }
-        ]
-    }
-    headers = {
-        "authkey": MSG91_AUTH_KEY,
-        "content-type": "application/json"
-    }
-
-    try:
-        response = requests.post("https://api.msg91.com/api/v2/sendsms", json=payload, headers=headers)
-        data = response.json()
-        return {
-            "success": True, 
-            "message": f"SMS queued for {req.to}",
-            "msg91_response": data
-        }
-    except Exception as e:
-        print(f"[SMS Error] {e}")
-        return {"success": False, "message": str(e)}
-
-
-# ─── Node Flush (simulated) ──────────────────────────────────────
-
-@app.post("/api/nodes/{node_label}/flush")
-def trigger_flush(node_label: str):
-    return {
-        "success": True,
-        "message": f"Valve flush on {node_label} completed. Local pressures balanced."
-    }
-
-
-# ─── Municipal Config ────────────────────────────────────────────
-
-@app.get("/api/config")
-def get_config():
-    res = supabase.table("municipal_config").select("*").eq("id", 1).execute()
-    if not res.data:
-        raise HTTPException(status_code=404, detail="Config not found")
-    return snake_to_camel_config(res.data[0])
-
-@app.put("/api/config")
-def update_config(updates: ConfigUpdate):
-    patch = {}
-    update_dict = updates.model_dump(exclude_unset=True)
-    for k, v in update_dict.items():
-        db_key = CONFIG_KEY_MAP.get(k, k)
-        patch[db_key] = v
-
-    if not patch:
-        raise HTTPException(status_code=400, detail="No fields to update")
-
-    res = supabase.table("municipal_config").update(patch).eq("id", 1).execute()
-    return snake_to_camel_config(res.data[0])
-
-
-# ─── Payments (Razorpay) ─────────────────────────────────────────
-
-@app.get("/api/payments/key")
-def get_payment_key():
-    if not RAZORPAY_KEY_ID:
-        raise HTTPException(status_code=500, detail="Razorpay key not configured")
-    return {"key": RAZORPAY_KEY_ID}
-
-class OrderCreate(BaseModel):
-    amount: int  # Amount in INR
-    receipt: str
-
-@app.post("/api/payments/create-order")
-def create_payment_order(order: OrderCreate):
-    if not razorpay_client:
-        raise HTTPException(status_code=500, detail="Razorpay keys not configured")
-    
-    try:
-        data = {
-            "amount": order.amount * 100,  # Razorpay expects paise
-            "currency": "INR",
-            "receipt": order.receipt
-        }
-        rp_order = razorpay_client.order.create(data=data)
-        return {"success": True, "order": rp_order}
-    except Exception as e:
-        print(f"[Razorpay Error] {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@app.post("/api/payments/verify")
-async def verify_payment(req: Request):
-    if not razorpay_client:
-        raise HTTPException(status_code=500, detail="Razorpay keys not configured")
-    
-    body = await req.json()
-    try:
-        # Check signature
-        razorpay_client.utility.verify_payment_signature({
-            'razorpay_order_id': body.get('razorpay_order_id'),
-            'razorpay_payment_id': body.get('razorpay_payment_id'),
-            'razorpay_signature': body.get('razorpay_signature')
-        })
-        return {"success": True, "message": "Payment verified successfully"}
-    except razorpay.errors.SignatureVerificationError:
-        raise HTTPException(status_code=400, detail="Invalid payment signature")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ─── Authentication ──────────────────────────────────────────────
@@ -553,6 +252,349 @@ def verify_access_token(token: str) -> dict:
         raise HTTPException(status_code=401, detail="Token expired")
     except jwt.InvalidTokenError:
         raise HTTPException(status_code=401, detail="Invalid token")
+
+def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid authentication token")
+    token = authorization.split(" ")[1]
+    payload = verify_access_token(token)
+    user = get_user_by_email(payload["email"])
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+    return user
+
+def require_role(allowed_roles: list):
+    def dependency(current_user: dict = Depends(get_current_user)):
+        if current_user.get("role") not in allowed_roles:
+            raise HTTPException(status_code=403, detail="Operation not permitted for this user role")
+        return current_user
+    return dependency
+
+@app.on_event("startup")
+def check_jwt_secret():
+    if JWT_SECRET == "jalsetu-super-secret-key-1234567890":
+        print("[WARNING] Using fallback JWT_SECRET. Please configure a unique JWT_SECRET in your .env file for production environments.")
+
+
+# ─── Wards ──────────────────────────────────────────────────────
+
+@app.get("/api/wards")
+def get_wards(current_user: dict = Depends(get_current_user)):
+    res = supabase.table("wards").select("*").order("id").execute()
+    return [ward_to_camel(w) for w in res.data]
+
+@app.put("/api/wards/{ward_id}")
+def update_ward(ward_id: int, updates: WardUpdate, current_user: dict = Depends(require_role(["operator"]))):
+    patch = {}
+    if updates.currentLevel is not None:
+        patch["current_level"] = updates.currentLevel
+    if updates.pumpStatus is not None:
+        patch["pump_status"] = updates.pumpStatus
+    if updates.currentVolume is not None:
+        patch["current_volume"] = updates.currentVolume
+
+    if not patch:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    res = supabase.table("wards").update(patch).eq("id", ward_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Ward not found")
+    return ward_to_camel(res.data[0])
+
+
+# ─── Complaints ─────────────────────────────────────────────────
+
+@app.get("/api/complaints")
+def get_complaints(current_user: dict = Depends(get_current_user)):
+    res = supabase.table("complaints").select("*").order("id", desc=True).execute()
+    # Rename snake → camel for frontend
+    out = []
+    is_operator = current_user.get("role") == "operator"
+    user_name = current_user.get("name", "")
+    
+    for c in res.data:
+        # Operators see all, citizens only see complaints matching their name
+        if is_operator or c.get("citizen") == user_name:
+            out.append({
+                "id":          c["id"],
+                "wardId":      c["ward_id"],
+                "citizen":     c["citizen"],
+                "category":    c["category"],
+                "description": c["description"],
+                "address":     c["address"],
+                "date":        c["date"],
+                "urgency":     c["urgency"],
+                "priority":    c["priority"],
+                "status":      c["status"],
+                "updates":     c["updates"] or [],
+            })
+    return out
+
+class ComplaintCreateWithEmail(ComplaintCreate):
+    email: Optional[str] = None
+
+@app.post("/api/complaints")
+def create_complaint(complaint: ComplaintCreateWithEmail, current_user: dict = Depends(get_current_user)):
+    # Overwrite citizen name and ward ID from the authenticated user context to prevent spoofing
+    new_ticket = {
+        "ward_id":     current_user.get("ward_id", complaint.wardId),
+        "citizen":     current_user.get("name", complaint.citizen),
+        "category":    complaint.category,
+        "description": complaint.description,
+        "address":     complaint.address,
+        "date":        "Just now",
+        "urgency":     complaint.urgency,
+        "priority":    complaint.urgency.lower(),
+        "status":      "Pending",
+        "updates":     [{"time": "Just now", "message": "Complaint received. Municipal operator review in progress."}],
+    }
+    res = supabase.table("complaints").insert(new_ticket).execute()
+    c = res.data[0]
+    out = {"id": c["id"], "wardId": c["ward_id"], "citizen": c["citizen"], "category": c["category"], "description": c["description"], "address": c["address"], "date": c["date"], "urgency": c["urgency"], "priority": c["priority"], "status": c["status"], "updates": c["updates"]}
+    
+    target_email = complaint.email or current_user.get("email")
+    if target_email:
+        send_email(to=target_email, subject=f"JalSetu — Complaint #{c['id']} Received", html=complaint_filed_html(out))
+    return out
+
+class ComplaintUpdateWithEmail(ComplaintUpdate):
+    email: Optional[str] = None
+
+@app.put("/api/complaints/{complaint_id}")
+def update_complaint(complaint_id: int, updates: ComplaintUpdateWithEmail, current_user: dict = Depends(require_role(["operator"]))):
+    res = supabase.table("complaints").select("*").eq("id", complaint_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+    existing_updates = res.data[0]["updates"] or []
+    existing_updates.append({"time": "Just now", "message": f"Status updated to {updates.status}, Priority: {updates.priority}."})
+    patch = {"status": updates.status, "priority": updates.priority, "updates": existing_updates}
+    res2 = supabase.table("complaints").update(patch).eq("id", complaint_id).execute()
+    c = res2.data[0]
+    out = {
+        "id": c["id"], "wardId": c["ward_id"], "citizen": c["citizen"], 
+        "category": c["category"], "description": c["description"],
+        "address": c["address"], "date": c["date"], "urgency": c["urgency"],
+        "priority": c["priority"], "status": c["status"], "updates": c["updates"],
+    }
+    target_email = updates.email or current_user.get("email")
+    if target_email:
+        send_email(to=target_email, subject=f"JalSetu — Complaint #{c['id']} Updated", html=complaint_updated_html(out))
+    return out
+
+
+# ─── Scheduler ──────────────────────────────────────────────────
+
+@app.get("/api/scheduler")
+def get_scheduler(current_user: dict = Depends(get_current_user)):
+    events_res  = supabase.table("scheduler_events").select("*").execute()
+    assigns_res = supabase.table("assignments").select("*").execute()
+    return {
+        "events":      [event_to_camel(e) for e in events_res.data],
+        "assignments": assigns_res.data,
+    }
+
+@app.post("/api/scheduler")
+def create_schedule(schedule: ScheduleCreate, current_user: dict = Depends(require_role(["operator"]))):
+    def time_to_px(t: str) -> int:
+        try:
+            h, m = map(int, t.split(":"))
+            return int(round((h + m / 60.0 - 6.0) * 26.6))
+        except:
+            return 80
+
+    top    = time_to_px(schedule.start)
+    height = max(40, time_to_px(schedule.end) - top)
+    event_id     = int(os.urandom(4).hex(), 16)
+    assignment_id = event_id + 1
+
+    new_event = {
+        "id":          event_id,
+        "day":         schedule.day,
+        "label":       schedule.ward.split(" - ")[0],
+        "time":        f"{schedule.start} - {schedule.end}",
+        "status":      "upcoming",
+        "top":         top,
+        "height":      height,
+        "color_class": "border-primary text-primary bg-primary-container/20 hover:bg-primary-container/30",
+    }
+    new_assignment = {
+        "id":   assignment_id,
+        "name": schedule.ward,
+        "time": f"Scheduled for {schedule.day}, {schedule.start}",
+        "icon": "location_on",
+    }
+
+    e_res = supabase.table("scheduler_events").insert(new_event).execute()
+    a_res = supabase.table("assignments").insert(new_assignment).execute()
+
+    return {
+        "event":      event_to_camel(e_res.data[0]),
+        "assignment": a_res.data[0],
+    }
+
+@app.delete("/api/scheduler/{event_id}")
+def delete_schedule(event_id: int, current_user: dict = Depends(require_role(["operator"]))):
+    res = supabase.table("scheduler_events").delete().eq("id", event_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Schedule event not found")
+    return {"success": True, "detail": "Schedule cancelled successfully"}
+
+
+# ─── Email Endpoints ────────────────────────────────────────────
+
+class PurityReportRequest(BaseModel):
+    to: str
+    ward_name: str
+    ph_level: float = 7.2
+    turbidity: str = "0.4 NTU"
+    chlorine: str = "0.8 mg/L"
+    result: str = "Excellent"
+
+@app.post("/api/email/purity-report")
+def send_purity_report(req: PurityReportRequest, current_user: dict = Depends(require_role(["operator"]))):
+    sc = {"Excellent":"#6bd8cb","Good":"#89ceff","Fair":"#eab308","Poor":"#ff5252"}.get(req.result,"#bec8d2")
+    html = f"""<div style='font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0f1418;color:#dee3e9;padding:32px;border-radius:16px'><div style='text-align:center;margin-bottom:24px'><h1 style='color:#89ceff;font-size:28px;margin:0'>JalSetu</h1><p style='color:#bec8d2;font-size:13px'>Weekly Water Quality Report</p></div><div style='background:#1b2024;border-radius:12px;padding:24px;border:1px solid #3e4850'><h2 style='color:#89ceff;margin:0 0 8px'>💧 Purity Report — {req.ward_name}</h2><table style='width:100%;border-collapse:collapse;margin-top:16px'><tr><td style='padding:10px;color:#89ceff;font-weight:600'>pH Level</td><td style='padding:10px;color:#dee3e9'>{req.ph_level}</td><td style='padding:10px;color:#6bd8cb'>✓ Normal</td></tr><tr style='background:#252b2f'><td style='padding:10px;color:#89ceff;font-weight:600'>Turbidity</td><td style='padding:10px;color:#dee3e9'>{req.turbidity}</td><td style='padding:10px;color:#6bd8cb'>✓ Clear</td></tr><tr><td style='padding:10px;color:#89ceff;font-weight:600'>Chlorine</td><td style='padding:10px;color:#dee3e9'>{req.chlorine}</td><td style='padding:10px;color:#6bd8cb'>✓ Safe</td></tr></table><div style='margin-top:20px;padding:16px;background:#252b2f;border-radius:8px;border-left:4px solid {sc};text-align:center'><p style='margin:0;font-size:20px;font-weight:700;color:{sc}'>Overall: {req.result}</p></div></div><p style='color:#bec8d2;font-size:12px;text-align:center;margin-top:24px'>© 2024 JalSetu Technologies · Securing every drop</p></div>"""
+    send_email(to=req.to, subject=f"JalSetu — Weekly Water Quality Report · {req.ward_name}", html=html)
+    return {"success": True, "message": f"Purity report sent to {req.to}"}
+
+@app.post("/api/email/supply-alert")
+def send_supply_alert(to: str, ward_name: str, start_time: str, current_user: dict = Depends(require_role(["operator"]))):
+    html = f"""<div style='font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0f1418;color:#dee3e9;padding:32px;border-radius:16px'><div style='text-align:center;margin-bottom:24px'><h1 style='color:#89ceff;font-size:28px;margin:0'>JalSetu</h1></div><div style='background:#1b2024;border-radius:12px;padding:24px;border:1px solid #3e4850;text-align:center'><div style='font-size:48px;margin-bottom:16px'>💧</div><h2 style='color:#89ceff;margin:0 0 8px'>Water Supply Alert</h2><p style='color:#bec8d2'>Supply for <strong style='color:#dee3e9'>{ward_name}</strong> starts at</p><p style='font-size:36px;font-weight:800;color:#6bd8cb;margin:8px 0'>{start_time}</p><p style='color:#bec8d2;font-size:13px'>Please ensure your storage tanks are ready.</p></div><p style='color:#bec8d2;font-size:12px;text-align:center;margin-top:24px'>© 2024 JalSetu Technologies · Securing every drop</p></div>"""
+    send_email(to=to, subject=f"JalSetu — Water Supply Alert · {ward_name} at {start_time}", html=html)
+    return {"success": True, "message": f"Supply alert sent to {to}"}
+
+
+# ─── SMS Endpoints (MSG91) ──────────────────────────────────────
+
+class SMSRequest(BaseModel):
+    to: str
+    message: str
+
+@app.post("/api/notify/sms")
+def send_sms_alert(req: SMSRequest, current_user: dict = Depends(require_role(["operator"]))):
+    if not MSG91_AUTH_KEY:
+        raise HTTPException(status_code=500, detail="MSG91 API Key not configured")
+
+    payload = {
+        "sender": "JALSTU",
+        "route": "4",
+        "country": "91",
+        "sms": [
+            {
+                "message": req.message,
+                "to": [req.to]
+            }
+        ]
+    }
+    headers = {
+        "authkey": MSG91_AUTH_KEY,
+        "content-type": "application/json"
+    }
+
+    try:
+        response = requests.post("https://api.msg91.com/api/v2/sendsms", json=payload, headers=headers)
+        data = response.json()
+        return {
+            "success": True, 
+            "message": f"SMS queued for {req.to}",
+            "msg91_response": data
+        }
+    except Exception as e:
+        print(f"[SMS Error] {e}")
+        return {"success": False, "message": str(e)}
+
+
+# ─── Node Flush (simulated) ──────────────────────────────────────
+
+@app.post("/api/nodes/{node_label}/flush")
+def trigger_flush(node_label: str, current_user: dict = Depends(require_role(["operator"]))):
+    return {
+        "success": True,
+        "message": f"Valve flush on {node_label} completed. Local pressures balanced."
+    }
+
+
+# ─── Municipal Config ────────────────────────────────────────────
+
+@app.get("/api/config")
+def get_config(current_user: dict = Depends(get_current_user)):
+    res = supabase.table("municipal_config").select("*").eq("id", 1).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return snake_to_camel_config(res.data[0])
+
+@app.put("/api/config")
+def update_config(updates: ConfigUpdate, current_user: dict = Depends(get_current_user)):
+    # Citizens can update personal toggles/thresholds, but only operators can edit infrastructure thresholds
+    if current_user.get("role") != "operator":
+        admin_keys = ["pressureLimit", "reservoirLimit", "leakSiren", "autoShutoff"]
+        update_dict = updates.model_dump(exclude_unset=True)
+        if any(k in update_dict for k in admin_keys):
+            raise HTTPException(status_code=403, detail="Unauthorized to change system infrastructure thresholds")
+
+    patch = {}
+    update_dict = updates.model_dump(exclude_unset=True)
+    for k, v in update_dict.items():
+        db_key = CONFIG_KEY_MAP.get(k, k)
+        patch[db_key] = v
+
+    if not patch:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    res = supabase.table("municipal_config").update(patch).eq("id", 1).execute()
+    return snake_to_camel_config(res.data[0])
+
+
+# ─── Payments (Razorpay) ─────────────────────────────────────────
+
+@app.get("/api/payments/key")
+def get_payment_key(current_user: dict = Depends(get_current_user)):
+    if not RAZORPAY_KEY_ID:
+        raise HTTPException(status_code=500, detail="Razorpay key not configured")
+    return {"key": RAZORPAY_KEY_ID}
+
+class OrderCreate(BaseModel):
+    amount: int  # Amount in INR
+    receipt: str
+
+@app.post("/api/payments/create-order")
+def create_payment_order(order: OrderCreate, current_user: dict = Depends(get_current_user)):
+    if not razorpay_client:
+        raise HTTPException(status_code=500, detail="Razorpay keys not configured")
+    
+    try:
+        data = {
+            "amount": order.amount * 100,  # Razorpay expects paise
+            "currency": "INR",
+            "receipt": order.receipt
+        }
+        rp_order = razorpay_client.order.create(data=data)
+        return {"success": True, "order": rp_order}
+    except Exception as e:
+        print(f"[Razorpay Error] {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/payments/verify")
+async def verify_payment(req: Request, current_user: dict = Depends(get_current_user)):
+    if not razorpay_client:
+        raise HTTPException(status_code=500, detail="Razorpay keys not configured")
+    
+    body = await req.json()
+    try:
+        # Check signature
+        razorpay_client.utility.verify_payment_signature({
+            'razorpay_order_id': body.get('razorpay_order_id'),
+            'razorpay_payment_id': body.get('razorpay_payment_id'),
+            'razorpay_signature': body.get('razorpay_signature')
+        })
+        return {"success": True, "message": "Payment verified successfully"}
+    except razorpay.errors.SignatureVerificationError:
+        raise HTTPException(status_code=400, detail="Invalid payment signature")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── Authentication Helper Functions Moved Higher ─────────────────
 
 class UserSignup(BaseModel):
     email: str

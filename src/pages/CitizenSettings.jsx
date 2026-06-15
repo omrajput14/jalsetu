@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { fetchConfig, updateConfig } from "../services/api";
+import { useAuth } from "../services/AuthContext";
 
 const CitizenSettings = () => {
+  const { user } = useAuth();
   const [notifications, setNotifications] = useState({
     smsAlerts: true,
     whatsappAlerts: true,
@@ -89,7 +91,7 @@ const CitizenSettings = () => {
                 <input 
                   type="text" 
                   disabled
-                  value="Rajesh Kumar"
+                  value={user?.name || "Anonymous Citizen"}
                   className="w-full bg-surface-container/50 border border-outline-variant/10 rounded-lg p-3 text-sm text-on-surface-variant cursor-not-allowed"
                 />
               </div>
@@ -98,16 +100,16 @@ const CitizenSettings = () => {
                 <input 
                   type="text" 
                   disabled
-                  value="+91 98765 43210"
+                  value={user?.phone || "+91 99887 76655"}
                   className="w-full bg-surface-container/50 border border-outline-variant/10 rounded-lg p-3 text-sm text-on-surface-variant cursor-not-allowed"
                 />
               </div>
               <div className="md:col-span-2">
-                <label className="text-[10px] text-on-surface-variant uppercase font-bold block mb-1">Connection Address</label>
+                <label className="text-[10px] text-on-surface-variant uppercase font-bold block mb-1">Connection Details / Registered Email</label>
                 <input 
                   type="text" 
                   disabled
-                  value="Plot 24, North Avenue Road, Sector B, North Sector, Ward 12"
+                  value={user ? `Assigned Ward: Sector-${user.ward_id || "N/A"} · Email: ${user.email}` : "Plot 24, North Avenue Road, Sector B, North Sector, Ward 12"}
                   className="w-full bg-surface-container/50 border border-outline-variant/10 rounded-lg p-3 text-sm text-on-surface-variant cursor-not-allowed"
                 />
               </div>
