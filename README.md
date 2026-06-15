@@ -9,6 +9,15 @@
 </p>
 
 <p align="center">
+  <a href="https://jalsetu.vercel.app/" target="_blank">
+    <img src="https://img.shields.io/badge/Live_App-Vercel-black?style=for-the-badge&logo=vercel&logoColor=white" alt="Live App" />
+  </a>
+  <a href="https://jalsetu-9ae7.onrender.com/docs" target="_blank">
+    <img src="https://img.shields.io/badge/API_Docs-Render-005571?style=for-the-badge&logo=fastapi&logoColor=white" alt="API Docs" />
+  </a>
+</p>
+
+<p align="center">
   <img src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB" alt="React" />
   <img src="https://img.shields.io/badge/Vite-646CFF?style=for-the-badge&logo=vite&logoColor=white" alt="Vite" />
   <img src="https://img.shields.io/badge/FastAPI-005571?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI" />
