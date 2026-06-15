@@ -101,14 +101,12 @@ Government-grade secure authentication system featuring role-based segregation, 
 
 <table width="100%">
   <tr>
-    <td width="33.3%"><p align="center"><b>Public Splash Landing</b></p></td>
-    <td width="33.3%"><p align="center"><b>Secure Portal Sign-In</b></p></td>
-    <td width="33.3%"><p align="center"><b>Citizen Registrations</b></p></td>
+    <td width="50%"><p align="center"><b>Public Splash Landing</b></p></td>
+    <td width="50%"><p align="center"><b>Secure Portal Sign-In</b></p></td>
   </tr>
   <tr>
-    <td><img src="images/Screenshot 2026-06-15 at 7.08.49 PM.png" alt="Splash Screen" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
-    <td><img src="images/Screenshot 2026-06-15 at 7.08.59 PM.png" alt="Portal Login" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
-    <td><img src="images/Screenshot 2026-06-15 at 7.09.11 PM.png" alt="Citizen Registration" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
+    <td><img src="images/Screenshot 2026-06-15 at 10.19.55 AM.png" alt="Splash Screen" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
+    <td><img src="images/Screenshot 2026-06-15 at 7.08.49 PM.png" alt="Portal Login" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
   </tr>
 </table>
 
@@ -121,16 +119,16 @@ Designed to give water consumers insight into telemetry data, payments, support 
     <td width="50%"><p align="center"><b>Water Usage Analytics Console</b></p></td>
   </tr>
   <tr>
-    <td><img src="images/Screenshot 2026-06-15 at 7.09.18 PM.png" alt="Citizen Dashboard" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
-    <td><img src="images/Screenshot 2026-06-15 at 7.09.38 PM.png" alt="Citizen Analytics" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
+    <td><img src="images/Screenshot 2026-06-15 at 7.10.50 PM.png" alt="Citizen Dashboard" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
+    <td><img src="images/Screenshot 2026-06-15 at 7.11.05 PM.png" alt="Citizen Analytics" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
   </tr>
   <tr>
     <td><p align="center"><b>Support & Grievances Panel</b></p></td>
     <td><p align="center"><b>Account & Alert Settings</b></p></td>
   </tr>
   <tr>
-    <td><img src="images/Screenshot 2026-06-15 at 7.09.29 PM.png" alt="Grievances" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
-    <td><img src="images/Screenshot 2026-06-15 at 7.09.45 PM.png" alt="Settings" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
+    <td><img src="images/Screenshot 2026-06-15 at 7.10.57 PM.png" alt="Grievances" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
+    <td><img src="images/Screenshot 2026-06-15 at 7.11.11 PM.png" alt="Settings" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
   </tr>
 </table>
 
@@ -139,31 +137,28 @@ Administrative view showing reservoir maps, valve health, timers, and telemetry 
 
 <table width="100%">
   <tr>
-    <td width="50%"><p align="center"><b>Geographic Node Pressure Map</b></p></td>
+    <td width="50%"><p align="center"><b>Geographic Node Pressure Map & Overview</b></p></td>
     <td width="50%"><p align="center"><b>Municipal Reservoirs Telemetry Grid</b></p></td>
   </tr>
   <tr>
-    <td><img src="images/Screenshot 2026-06-15 at 7.10.50 PM.png" alt="Pressure map" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
-    <td><img src="images/Screenshot 2026-06-15 at 7.10.57 PM.png" alt="Reservoirs" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
+    <td><img src="images/Screenshot 2026-06-15 at 7.08.59 PM.png" alt="Pressure Map Overview" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
+    <td><img src="images/Screenshot 2026-06-15 at 7.09.11 PM.png" alt="Reservoirs Monitor" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
   </tr>
   <tr>
     <td><p align="center"><b>Supply Calendar Planner</b></p></td>
+    <td><p align="center"><b>Grievance Tickets Board</b></p></td>
+  </tr>
+  <tr>
+    <td><img src="images/Screenshot 2026-06-15 at 7.09.18 PM.png" alt="Supply Calendar" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
+    <td><img src="images/Screenshot 2026-06-15 at 7.09.29 PM.png" alt="Grievance Board" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
+  </tr>
+  <tr>
+    <td><p align="center"><b>Municipal Water Analytics</b></p></td>
     <td><p align="center"><b>Central Operator Configurations</b></p></td>
   </tr>
   <tr>
-    <td><img src="images/Screenshot 2026-06-15 at 7.11.05 PM.png" alt="Supply Calendar" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
-    <td><img src="images/Screenshot 2026-06-15 at 7.11.11 PM.png" alt="Operator configuration" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
-  </tr>
-</table>
-
-<table width="100%">
-  <tr>
-    <td width="50%"><p align="center"><b>Unified Municipal System Diagnostics</b></p></td>
-    <td width="50%"><p align="center"><b>Grievances Resolution Dashboard</b></p></td>
-  </tr>
-  <tr>
-    <td><img src="images/Screenshot 2026-06-15 at 10.19.55 AM.png" alt="Diagnostics" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
-    <td><img src="images/Screenshot 2026-06-15 at 7.10.50 PM.png" alt="Grievance Map Node" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
+    <td><img src="images/Screenshot 2026-06-15 at 7.09.38 PM.png" alt="Water Analytics" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
+    <td><img src="images/Screenshot 2026-06-15 at 7.09.45 PM.png" alt="Operator Configuration" width="100%" style="border-radius: 8px; border: 1px solid #2d3748;" /></td>
   </tr>
 </table>
 
