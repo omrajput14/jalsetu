@@ -1,13 +1,27 @@
 import os
-import json
-from fastapi import FastAPI, HTTPException, Body
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from typing import List, Dict, Any, Optional
+from typing import Optional
+from dotenv import load_dotenv
+from supabase import create_client, Client
 
-app = FastAPI(title="JalSetu API", description="Smart Water Distribution Management Platform API")
+# Load .env
+load_dotenv()
 
-# Enable CORS for local cross-origin development
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise RuntimeError("Missing SUPABASE_URL or SUPABASE_KEY in .env")
+
+supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+
+app = FastAPI(
+    title="JalSetu API",
+    description="Smart Water Distribution Management Platform — powered by Supabase"
+)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -16,19 +30,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-DB_PATH = os.path.join(os.path.dirname(__file__), "db.json")
+# ─── Pydantic Models ────────────────────────────────────────────
 
-def load_db() -> dict:
-    if not os.path.exists(DB_PATH):
-        raise HTTPException(status_code=500, detail="Database file not found.")
-    with open(DB_PATH, "r", encoding="utf-8") as f:
-        return json.load(f)
-
-def save_db(data: dict):
-    with open(DB_PATH, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=2)
-
-# --- Models ---
 class WardUpdate(BaseModel):
     currentLevel: Optional[int] = None
     pumpStatus: Optional[str] = None
@@ -64,167 +67,241 @@ class ConfigUpdate(BaseModel):
     threshold: Optional[int] = None
 
 
-# --- Endpoints ---
+# ─── Helper: camelCase → snake_case map for config ──────────────
+
+CONFIG_KEY_MAP = {
+    "pressureLimit":  "pressure_limit",
+    "reservoirLimit": "reservoir_limit",
+    "smsAlerts":      "sms_alerts",
+    "leakSiren":      "leak_siren",
+    "autoShutoff":    "auto_shutoff",
+    "whatsappAlerts": "whatsapp_alerts",
+    "emailReports":   "email_reports",
+    "ecoMode":        "eco_mode",
+    "threshold":      "threshold",
+}
+
+def snake_to_camel_config(row: dict) -> dict:
+    """Convert DB snake_case config row → camelCase for frontend."""
+    reverse = {v: k for k, v in CONFIG_KEY_MAP.items()}
+    return {reverse.get(k, k): v for k, v in row.items() if k != "id"}
+
+def ward_to_camel(row: dict) -> dict:
+    """Convert DB snake_case ward row → camelCase for frontend."""
+    return {
+        "id":               row["id"],
+        "name":             row["name"],
+        "sector":           row["sector"],
+        "currentLevel":     row["current_level"],
+        "tankCapacity":     row["tank_capacity"],
+        "pumpStatus":       row["pump_status"],
+        "lastRefill":       row["last_refill"],
+        "nextSupply":       row["next_supply"],
+        "currentVolume":    row["current_volume"],
+        "estimatedOutflow": row["estimated_outflow"],
+        "supplySchedule":   row["supply_schedule"] or [],
+    }
+
+def event_to_camel(row: dict) -> dict:
+    return {
+        "id":         row["id"],
+        "day":        row["day"],
+        "label":      row["label"],
+        "time":       row["time"],
+        "status":     row["status"],
+        "top":        row["top"],
+        "height":     row["height"],
+        "colorClass": row["color_class"],
+    }
+
+
+# ─── Wards ──────────────────────────────────────────────────────
 
 @app.get("/api/wards")
 def get_wards():
-    db = load_db()
-    return db.get("wards", [])
+    res = supabase.table("wards").select("*").order("id").execute()
+    return [ward_to_camel(w) for w in res.data]
 
 @app.put("/api/wards/{ward_id}")
 def update_ward(ward_id: int, updates: WardUpdate):
-    db = load_db()
-    wards = db.get("wards", [])
-    for w in wards:
-        if w["id"] == ward_id:
-            if updates.currentLevel is not None:
-                w["currentLevel"] = updates.currentLevel
-            if updates.pumpStatus is not None:
-                w["pumpStatus"] = updates.pumpStatus
-            if updates.currentVolume is not None:
-                w["currentVolume"] = updates.currentVolume
-            save_db(db)
-            return w
-    raise HTTPException(status_code=404, detail="Ward not found")
+    patch = {}
+    if updates.currentLevel is not None:
+        patch["current_level"] = updates.currentLevel
+    if updates.pumpStatus is not None:
+        patch["pump_status"] = updates.pumpStatus
+    if updates.currentVolume is not None:
+        patch["current_volume"] = updates.currentVolume
+
+    if not patch:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    res = supabase.table("wards").update(patch).eq("id", ward_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Ward not found")
+    return ward_to_camel(res.data[0])
+
+
+# ─── Complaints ─────────────────────────────────────────────────
 
 @app.get("/api/complaints")
 def get_complaints():
-    db = load_db()
-    return db.get("complaints", [])
+    res = supabase.table("complaints").select("*").order("id", desc=True).execute()
+    # Rename snake → camel for frontend
+    out = []
+    for c in res.data:
+        out.append({
+            "id":          c["id"],
+            "wardId":      c["ward_id"],
+            "citizen":     c["citizen"],
+            "category":    c["category"],
+            "description": c["description"],
+            "address":     c["address"],
+            "date":        c["date"],
+            "urgency":     c["urgency"],
+            "priority":    c["priority"],
+            "status":      c["status"],
+            "updates":     c["updates"] or [],
+        })
+    return out
 
 @app.post("/api/complaints")
 def create_complaint(complaint: ComplaintCreate):
-    db = load_db()
-    complaints = db.get("complaints", [])
-    
-    new_id = max([c["id"] for c in complaints]) + 1 if complaints else 1000
     new_ticket = {
-        "id": new_id,
-        "wardId": complaint.wardId,
-        "citizen": complaint.citizen,
-        "category": complaint.category,
+        "ward_id":     complaint.wardId,
+        "citizen":     complaint.citizen,
+        "category":    complaint.category,
         "description": complaint.description,
-        "address": complaint.address,
-        "date": "Just now",
-        "urgency": complaint.urgency,
-        "priority": complaint.urgency.lower(),
-        "status": "Pending",
-        "updates": [
-            { "time": "Just now", "message": "Complaint received. Municipal operator review in progress." }
-        ]
+        "address":     complaint.address,
+        "date":        "Just now",
+        "urgency":     complaint.urgency,
+        "priority":    complaint.urgency.lower(),
+        "status":      "Pending",
+        "updates":     [{"time": "Just now", "message": "Complaint received. Municipal operator review in progress."}],
     }
-    
-    complaints.insert(0, new_ticket)
-    db["complaints"] = complaints
-    save_db(db)
-    return new_ticket
+    res = supabase.table("complaints").insert(new_ticket).execute()
+    c = res.data[0]
+    return {
+        "id": c["id"], "wardId": c["ward_id"], "citizen": c["citizen"],
+        "category": c["category"], "description": c["description"],
+        "address": c["address"], "date": c["date"], "urgency": c["urgency"],
+        "priority": c["priority"], "status": c["status"], "updates": c["updates"],
+    }
 
 @app.put("/api/complaints/{complaint_id}")
 def update_complaint(complaint_id: int, updates: ComplaintUpdate):
-    db = load_db()
-    complaints = db.get("complaints", [])
-    for c in complaints:
-        if c["id"] == complaint_id:
-            c["status"] = updates.status
-            c["priority"] = updates.priority
-            c["updates"].append({
-                "time": "Just now",
-                "message": f"Ticket details updated. Status: {updates.status}, Priority: {updates.priority}."
-            })
-            save_db(db)
-            return c
-    raise HTTPException(status_code=404, detail="Complaint not found")
+    # Fetch current updates array
+    res = supabase.table("complaints").select("updates").eq("id", complaint_id).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Complaint not found")
+
+    existing_updates = res.data[0]["updates"] or []
+    existing_updates.append({
+        "time": "Just now",
+        "message": f"Status updated to {updates.status}, Priority: {updates.priority}."
+    })
+
+    patch = {
+        "status":   updates.status,
+        "priority": updates.priority,
+        "updates":  existing_updates,
+    }
+    res2 = supabase.table("complaints").update(patch).eq("id", complaint_id).execute()
+    c = res2.data[0]
+    return {
+        "id": c["id"], "wardId": c["ward_id"], "citizen": c["citizen"],
+        "category": c["category"], "description": c["description"],
+        "address": c["address"], "date": c["date"], "urgency": c["urgency"],
+        "priority": c["priority"], "status": c["status"], "updates": c["updates"],
+    }
+
+
+# ─── Scheduler ──────────────────────────────────────────────────
 
 @app.get("/api/scheduler")
 def get_scheduler():
-    db = load_db()
+    events_res  = supabase.table("scheduler_events").select("*").execute()
+    assigns_res = supabase.table("assignments").select("*").execute()
     return {
-        "events": db.get("schedulerEvents", []),
-        "assignments": db.get("assignments", [])
+        "events":      [event_to_camel(e) for e in events_res.data],
+        "assignments": assigns_res.data,
     }
 
 @app.post("/api/scheduler")
 def create_schedule(schedule: ScheduleCreate):
-    db = load_db()
-    events = db.get("schedulerEvents", [])
-    assignments = db.get("assignments", [])
-    
-    # Calculate timeline coordinate parameters (equivalent to frontend timeToPx)
-    def time_to_px(time_str: str) -> int:
+    def time_to_px(t: str) -> int:
         try:
-            h, m = map(int, time_str.split(":"))
-            total_hours = h + m / 60.0
-            relative_hours = max(0.0, total_hours - 6.0)
-            return int(round(relative_hours * 26.6))
+            h, m = map(int, t.split(":"))
+            return int(round((h + m / 60.0 - 6.0) * 26.6))
         except:
             return 80
-            
-    top = time_to_px(schedule.start)
-    end_top = time_to_px(schedule.end)
-    height = max(40, end_top - top)
-    
+
+    top    = time_to_px(schedule.start)
+    height = max(40, time_to_px(schedule.end) - top)
+    event_id     = int(os.urandom(4).hex(), 16)
+    assignment_id = event_id + 1
+
     new_event = {
-        "id": int(os.urandom(4).hex(), 16),
-        "day": schedule.day,
-        "label": schedule.ward.split(" - ")[0],
-        "time": f"{schedule.start} - {schedule.end}",
-        "status": "upcoming",
-        "top": top,
-        "height": height,
-        "colorClass": "border-primary text-primary bg-primary-container/20 hover:bg-primary-container/30"
+        "id":          event_id,
+        "day":         schedule.day,
+        "label":       schedule.ward.split(" - ")[0],
+        "time":        f"{schedule.start} - {schedule.end}",
+        "status":      "upcoming",
+        "top":         top,
+        "height":      height,
+        "color_class": "border-primary text-primary bg-primary-container/20 hover:bg-primary-container/30",
     }
-    
     new_assignment = {
-        "id": int(os.urandom(4).hex(), 16) + 1,
+        "id":   assignment_id,
         "name": schedule.ward,
         "time": f"Scheduled for {schedule.day}, {schedule.start}",
-        "icon": "location_on"
+        "icon": "location_on",
     }
-    
-    events.append(new_event)
-    assignments.insert(0, new_assignment)
-    
-    db["schedulerEvents"] = events
-    db["assignments"] = assignments
-    save_db(db)
-    
-    return { "event": new_event, "assignment": new_assignment }
+
+    e_res = supabase.table("scheduler_events").insert(new_event).execute()
+    a_res = supabase.table("assignments").insert(new_assignment).execute()
+
+    return {
+        "event":      event_to_camel(e_res.data[0]),
+        "assignment": a_res.data[0],
+    }
 
 @app.delete("/api/scheduler/{event_id}")
 def delete_schedule(event_id: int):
-    db = load_db()
-    events = db.get("schedulerEvents", [])
-    filtered_events = [e for e in events if e["id"] != event_id]
-    
-    if len(events) == len(filtered_events):
+    res = supabase.table("scheduler_events").delete().eq("id", event_id).execute()
+    if not res.data:
         raise HTTPException(status_code=404, detail="Schedule event not found")
-        
-    db["schedulerEvents"] = filtered_events
-    save_db(db)
-    return { "success": True, "detail": "Schedule cancelled successfully" }
+    return {"success": True, "detail": "Schedule cancelled successfully"}
+
+
+# ─── Node Flush (simulated) ──────────────────────────────────────
 
 @app.post("/api/nodes/{node_label}/flush")
 def trigger_flush(node_label: str):
-    # Simulated action, returns success status
     return {
         "success": True,
-        "message": f"Valve flush diagnostics on {node_label} completed successfully. Local pressures balanced."
+        "message": f"Valve flush on {node_label} completed. Local pressures balanced."
     }
+
+
+# ─── Municipal Config ────────────────────────────────────────────
 
 @app.get("/api/config")
 def get_config():
-    db = load_db()
-    return db.get("municipalConfig", {})
+    res = supabase.table("municipal_config").select("*").eq("id", 1).execute()
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Config not found")
+    return snake_to_camel_config(res.data[0])
 
 @app.put("/api/config")
 def update_config(updates: ConfigUpdate):
-    db = load_db()
-    config = db.get("municipalConfig", {})
-    
+    patch = {}
     update_dict = updates.model_dump(exclude_unset=True)
     for k, v in update_dict.items():
-        config[k] = v
-        
-    db["municipalConfig"] = config
-    save_db(db)
-    return config
+        db_key = CONFIG_KEY_MAP.get(k, k)
+        patch[db_key] = v
+
+    if not patch:
+        raise HTTPException(status_code=400, detail="No fields to update")
+
+    res = supabase.table("municipal_config").update(patch).eq("id", 1).execute()
+    return snake_to_camel_config(res.data[0])
