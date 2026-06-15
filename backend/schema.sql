@@ -126,3 +126,27 @@ on conflict (id) do nothing;
 insert into municipal_config (id, pressure_limit, reservoir_limit, sms_alerts, leak_siren, auto_shutoff, whatsapp_alerts, email_reports, eco_mode, threshold)
 values (1, 5.5, 20, true, true, true, true, false, true, 350)
 on conflict (id) do nothing;
+
+-- ============================================================
+-- 6. USERS
+-- ============================================================
+create table if not exists users (
+  id            uuid default gen_random_uuid() primary key,
+  email         text unique not null,
+  password_hash text not null,
+  role          text not null default 'citizen', -- 'citizen' or 'operator'
+  name          text,
+  phone         text,
+  ward_id       integer references wards(id),
+  created_at    timestamptz default now()
+);
+
+alter table users disable row level security;
+
+-- ============================================================
+-- SEED DATA — Users
+-- ============================================================
+insert into users (email, password_hash, role, name, phone, ward_id) values
+('citizen@jalsetu.in', '$2b$12$wePRow.RY1wW3wf.SstECeMPZEjflYMZKtAIlE4LLfurrGXfXPUOi', 'citizen', 'Rajesh Kumar', '9988776655', 2),
+('operator@jalsetu.in', '$2b$12$wePRow.RY1wW3wf.SstECeMPZEjflYMZKtAIlE4LLfurrGXfXPUOi', 'operator', 'Municipal Admin', '9876543210', 1)
+on conflict (email) do nothing;

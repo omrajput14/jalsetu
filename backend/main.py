@@ -2,6 +2,10 @@ import os
 import requests
 import resend
 import razorpay
+import jwt
+import bcrypt
+import json
+from datetime import datetime, timedelta
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -444,3 +448,192 @@ async def verify_payment(req: Request):
         raise HTTPException(status_code=400, detail="Invalid payment signature")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+# ─── Authentication ──────────────────────────────────────────────
+
+JWT_SECRET = os.getenv("JWT_SECRET", "jalsetu-super-secret-key-1234567890")
+JWT_ALGORITHM = "HS256"
+USERS_FILE = os.path.join(os.path.dirname(__file__), "users.json")
+
+def load_local_users():
+    if not os.path.exists(USERS_FILE):
+        default_users = [
+            {
+                "email": "citizen@jalsetu.in",
+                "password_hash": "$2b$12$wePRow.RY1wW3wf.SstECeMPZEjflYMZKtAIlE4LLfurrGXfXPUOi",
+                "role": "citizen",
+                "name": "Rajesh Kumar",
+                "phone": "9988776655",
+                "ward_id": 2
+            },
+            {
+                "email": "operator@jalsetu.in",
+                "password_hash": "$2b$12$wePRow.RY1wW3wf.SstECeMPZEjflYMZKtAIlE4LLfurrGXfXPUOi",
+                "role": "operator",
+                "name": "Municipal Admin",
+                "phone": "9876543210",
+                "ward_id": 1
+            }
+        ]
+        with open(USERS_FILE, "w") as f:
+            json.dump(default_users, f, indent=2)
+        return default_users
+    try:
+        with open(USERS_FILE, "r") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"[Auth] Local JSON read failed: {e}")
+        return []
+
+def save_local_users(users_list):
+    try:
+        with open(USERS_FILE, "w") as f:
+            json.dump(users_list, f, indent=2)
+    except Exception as e:
+        print(f"[Auth] Local JSON write failed: {e}")
+
+def get_user_by_email(email: str):
+    try:
+        res = supabase.table("users").select("*").eq("email", email).execute()
+        if res.data:
+            return res.data[0]
+    except Exception as e:
+        print(f"[Auth] Supabase users table query failed, falling back: {e}")
+    
+    users = load_local_users()
+    for u in users:
+        if u["email"] == email:
+            return u
+    return None
+
+def create_user_record(email: str, password_hash: str, role: str, name: str, phone: str, ward_id: int):
+    new_user = {
+        "email": email,
+        "password_hash": password_hash,
+        "role": role,
+        "name": name,
+        "phone": phone,
+        "ward_id": ward_id
+    }
+    try:
+        res = supabase.table("users").insert(new_user).execute()
+        if res.data:
+            return res.data[0]
+    except Exception as e:
+        print(f"[Auth] Supabase users table insert failed, falling back: {e}")
+    
+    users = load_local_users()
+    new_user["id"] = str(os.urandom(16).hex())
+    users.append(new_user)
+    save_local_users(users)
+    return new_user
+
+def hash_password(password: str) -> str:
+    return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+def verify_password(password: str, hashed: str) -> bool:
+    try:
+        return bcrypt.checkpw(password.encode('utf-8'), hashed.encode('utf-8'))
+    except Exception as e:
+        print(f"[Auth] Password verification failed: {e}")
+        return False
+
+def create_access_token(data: dict, expires_delta: timedelta = timedelta(days=7)) -> str:
+    to_encode = data.copy()
+    expire = datetime.utcnow() + expires_delta
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, JWT_SECRET, algorithm=JWT_ALGORITHM)
+
+def verify_access_token(token: str) -> dict:
+    try:
+        payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
+        return payload
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+class UserSignup(BaseModel):
+    email: str
+    password: str
+    name: str
+    phone: str
+    ward_id: int
+    role: Optional[str] = "citizen"
+
+class UserLogin(BaseModel):
+    email: str
+    password: str
+
+@app.post("/api/auth/signup")
+def signup(user: UserSignup):
+    existing = get_user_by_email(user.email)
+    if existing:
+        raise HTTPException(status_code=400, detail="Email already registered")
+    
+    hashed = hash_password(user.password)
+    new_user = create_user_record(
+        email=user.email,
+        password_hash=hashed,
+        role=user.role,
+        name=user.name,
+        phone=user.phone,
+        ward_id=user.ward_id
+    )
+    
+    token = create_access_token({"email": new_user["email"], "role": new_user["role"]})
+    return {
+        "success": True,
+        "token": token,
+        "user": {
+            "email": new_user["email"],
+            "role": new_user["role"],
+            "name": new_user["name"],
+            "phone": new_user["phone"],
+            "ward_id": new_user["ward_id"]
+        }
+    }
+
+@app.post("/api/auth/login")
+def login(credentials: UserLogin):
+    user = get_user_by_email(credentials.email)
+    if not user or not verify_password(credentials.password, user["password_hash"]):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    token = create_access_token({"email": user["email"], "role": user["role"]})
+    return {
+        "success": True,
+        "token": token,
+        "user": {
+            "email": user["email"],
+            "role": user["role"],
+            "name": user["name"],
+            "phone": user.get("phone", ""),
+            "ward_id": user.get("ward_id", None)
+        }
+    }
+
+@app.get("/api/auth/me")
+def get_me(request: Request):
+    auth_header = request.headers.get("Authorization")
+    if not auth_header or not auth_header.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Missing or invalid token")
+    
+    token = auth_header.split(" ")[1]
+    payload = verify_access_token(token)
+    
+    user = get_user_by_email(payload["email"])
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+        
+    return {
+        "success": True,
+        "user": {
+            "email": user["email"],
+            "role": user["role"],
+            "name": user["name"],
+            "phone": user.get("phone", ""),
+            "ward_id": user.get("ward_id", None)
+        }
+    }

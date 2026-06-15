@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "../services/AuthContext";
 
 const citizenNavItems = [
   { icon: "dashboard", label: "Dashboard", path: "/dashboard" },
@@ -21,8 +22,15 @@ const departmentNavItems = [
 const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
+  const { logout, user } = useAuth();
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showNotification, setShowNotification] = useState(false);
+
+  const handleLogout = (e) => {
+    e.preventDefault();
+    logout();
+    navigate("/login");
+  };
 
   // Determine role based on pathname
   const isDepartment =
@@ -68,10 +76,10 @@ const Sidebar = () => {
           </div>
           <div className="overflow-hidden">
             <p className="font-heading text-xs font-semibold text-on-surface truncate tracking-wider">
-              {isDepartment ? "Admin User" : "Rajesh Kumar"}
+              {user ? user.name : (isDepartment ? "Admin User" : "Rajesh Kumar")}
             </p>
             <p className="text-[10px] text-on-surface-variant truncate">
-              {isDepartment ? "Ward 12 - North Sector" : "Citizen (Ward 12)"}
+              {user ? (user.role === "operator" ? "Municipal Admin" : `Citizen (Ward ${user.ward_id})`) : (isDepartment ? "Ward 12 - North Sector" : "Citizen (Ward 12)")}
             </p>
           </div>
         </div>
@@ -125,10 +133,13 @@ const Sidebar = () => {
           <span className="material-symbols-outlined">help</span>
           <span>Help Center</span>
         </a>
-        <NavLink to="/" className="flex items-center gap-4 px-4 py-2.5 text-on-surface-variant hover:text-on-surface transition-colors text-xs font-semibold tracking-wider">
+        <button 
+          onClick={handleLogout} 
+          className="flex items-center gap-4 px-4 py-2.5 text-on-surface-variant hover:text-on-surface transition-colors text-xs font-semibold tracking-wider bg-transparent border-none text-left w-full cursor-pointer"
+        >
           <span className="material-symbols-outlined">logout</span>
           <span>Logout</span>
-        </NavLink>
+        </button>
       </div>
 
       {/* Emergency Shutdown Confirmation Modal */}
