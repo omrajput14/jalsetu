@@ -1,0 +1,27 @@
+[
+  {
+    "email": "citizen@jalsetu.in",
+    "password_hash": "$2b$12$wePRow.RY1wW3wf.SstECeMPZEjflYMZKtAIlE4LLfurrGXfXPUOi",
+    "role": "citizen",
+    "name": "Rajesh Kumar",
+    "phone": "9988776655",
+    "ward_id": 2
+  },
+  {
+    "email": "operator@jalsetu.in",
+    "password_hash": "$2b$12$wePRow.RY1wW3wf.SstECeMPZEjflYMZKtAIlE4LLfurrGXfXPUOi",
+    "role": "operator",
+    "name": "Municipal Admin",
+    "phone": "9876543210",
+    "ward_id": 1
+  },
+  {
+    "email": "omrajput9113@gmail.com",
+    "password_hash": "$2b$12$YgtqDy2J/7k3sLOwaTDcy.i.g9fmAx/w4Ml1xPvOp/vy6P6m5YtoS",
+    "role": "citizen",
+    "name": "om",
+    "phone": "9021961058",
+    "ward_id": 1,
+    "id": "ea0b5aa43ab26decfe6196f76097da53"
+  }
+]
