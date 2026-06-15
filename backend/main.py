@@ -1,4 +1,6 @@
 import os
+import requests
+import resend
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -11,11 +13,31 @@ load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+RESEND_API_KEY = os.getenv("RESEND_API_KEY")
+FROM_EMAIL = os.getenv("FROM_EMAIL", "onboarding@resend.dev")
+MSG91_AUTH_KEY = os.getenv("MSG91_AUTH_KEY")
 
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise RuntimeError("Missing SUPABASE_URL or SUPABASE_KEY in .env")
 
 supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
+resend.api_key = RESEND_API_KEY
+
+# ─── Email Helpers ───────────────────────────────────────────────
+
+def send_email(to: str, subject: str, html: str):
+    try:
+        resend.Emails.send({"from": f"JalSetu <{FROM_EMAIL}>", "to": [to], "subject": subject, "html": html})
+    except Exception as e:
+        print(f"[Email] Failed: {e}")
+
+def complaint_filed_html(c: dict) -> str:
+    return f"""<div style='font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0f1418;color:#dee3e9;padding:32px;border-radius:16px'><div style='text-align:center;margin-bottom:24px'><h1 style='color:#89ceff;font-size:28px;margin:0'>JalSetu</h1><p style='color:#bec8d2;font-size:13px;margin:4px 0'>Smart Water Distribution Platform</p></div><div style='background:#1b2024;border-radius:12px;padding:24px;border:1px solid #3e4850'><h2 style='color:#6bd8cb;margin:0 0 16px'>✅ Complaint Registered</h2><p style='color:#bec8d2'>Your complaint has been received and is under review.</p><table style='width:100%;border-collapse:collapse;margin-top:16px'><tr><td style='padding:8px;color:#89ceff;font-weight:600;width:140px'>Ticket ID</td><td style='padding:8px;color:#dee3e9'>#{c['id']}</td></tr><tr style='background:#252b2f'><td style='padding:8px;color:#89ceff;font-weight:600'>Category</td><td style='padding:8px;color:#dee3e9'>{c['category']}</td></tr><tr><td style='padding:8px;color:#89ceff;font-weight:600'>Address</td><td style='padding:8px;color:#dee3e9'>{c['address']}</td></tr><tr style='background:#252b2f'><td style='padding:8px;color:#89ceff;font-weight:600'>Urgency</td><td style='padding:8px;color:#dee3e9'>{c['urgency']}</td></tr><tr><td style='padding:8px;color:#89ceff;font-weight:600'>Status</td><td style='padding:8px;color:#6bd8cb;font-weight:700'>Pending Review</td></tr></table></div><p style='color:#bec8d2;font-size:12px;text-align:center;margin-top:24px'>© 2024 JalSetu Technologies · Securing every drop</p></div>"""
+
+def complaint_updated_html(c: dict) -> str:
+    sc = {"Resolved":"#6bd8cb","In Progress":"#89ceff","Pending":"#eab308"}.get(c['status'],"#bec8d2")
+    last_msg = c['updates'][-1]['message'] if c.get('updates') else 'No update message.'
+    return f"""<div style='font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0f1418;color:#dee3e9;padding:32px;border-radius:16px'><div style='text-align:center;margin-bottom:24px'><h1 style='color:#89ceff;font-size:28px;margin:0'>JalSetu</h1></div><div style='background:#1b2024;border-radius:12px;padding:24px;border:1px solid #3e4850'><h2 style='color:#89ceff;margin:0 0 16px'>🔔 Complaint Update — #{c['id']}</h2><p style='color:#bec8d2'>Your complaint status has been updated by the municipal team.</p><div style='margin-top:16px;padding:16px;background:#252b2f;border-radius:8px;border-left:4px solid {sc}'><p style='margin:0;font-size:18px;font-weight:700;color:{sc}'>Status: {c['status']}</p><p style='margin:4px 0 0;color:#bec8d2;font-size:13px'>Priority: {c['priority'].capitalize()}</p></div><p style='color:#bec8d2;margin-top:16px;font-size:13px'>Latest update: {last_msg}</p></div><p style='color:#bec8d2;font-size:12px;text-align:center;margin-top:24px'>© 2024 JalSetu Technologies · Securing every drop</p></div>"""
 
 app = FastAPI(
     title="JalSetu API",
@@ -164,8 +186,11 @@ def get_complaints():
         })
     return out
 
+class ComplaintCreateWithEmail(ComplaintCreate):
+    email: Optional[str] = None
+
 @app.post("/api/complaints")
-def create_complaint(complaint: ComplaintCreate):
+def create_complaint(complaint: ComplaintCreateWithEmail):
     new_ticket = {
         "ward_id":     complaint.wardId,
         "citizen":     complaint.citizen,
@@ -180,39 +205,33 @@ def create_complaint(complaint: ComplaintCreate):
     }
     res = supabase.table("complaints").insert(new_ticket).execute()
     c = res.data[0]
-    return {
-        "id": c["id"], "wardId": c["ward_id"], "citizen": c["citizen"],
-        "category": c["category"], "description": c["description"],
-        "address": c["address"], "date": c["date"], "urgency": c["urgency"],
-        "priority": c["priority"], "status": c["status"], "updates": c["updates"],
-    }
+    out = {"id": c["id"], "wardId": c["ward_id"], "citizen": c["citizen"], "category": c["category"], "description": c["description"], "address": c["address"], "date": c["date"], "urgency": c["urgency"], "priority": c["priority"], "status": c["status"], "updates": c["updates"]}
+    if complaint.email:
+        send_email(to=complaint.email, subject=f"JalSetu — Complaint #{c['id']} Received", html=complaint_filed_html(out))
+    return out
+
+class ComplaintUpdateWithEmail(ComplaintUpdate):
+    email: Optional[str] = None
 
 @app.put("/api/complaints/{complaint_id}")
-def update_complaint(complaint_id: int, updates: ComplaintUpdate):
-    # Fetch current updates array
-    res = supabase.table("complaints").select("updates").eq("id", complaint_id).execute()
+def update_complaint(complaint_id: int, updates: ComplaintUpdateWithEmail):
+    res = supabase.table("complaints").select("*").eq("id", complaint_id).execute()
     if not res.data:
         raise HTTPException(status_code=404, detail="Complaint not found")
-
     existing_updates = res.data[0]["updates"] or []
-    existing_updates.append({
-        "time": "Just now",
-        "message": f"Status updated to {updates.status}, Priority: {updates.priority}."
-    })
-
-    patch = {
-        "status":   updates.status,
-        "priority": updates.priority,
-        "updates":  existing_updates,
-    }
+    existing_updates.append({"time": "Just now", "message": f"Status updated to {updates.status}, Priority: {updates.priority}."})
+    patch = {"status": updates.status, "priority": updates.priority, "updates": existing_updates}
     res2 = supabase.table("complaints").update(patch).eq("id", complaint_id).execute()
     c = res2.data[0]
-    return {
-        "id": c["id"], "wardId": c["ward_id"], "citizen": c["citizen"],
+    out = {
+        "id": c["id"], "wardId": c["ward_id"], "citizen": c["citizen"], 
         "category": c["category"], "description": c["description"],
         "address": c["address"], "date": c["date"], "urgency": c["urgency"],
         "priority": c["priority"], "status": c["status"], "updates": c["updates"],
     }
+    if updates.email:
+        send_email(to=updates.email, subject=f"JalSetu — Complaint #{c['id']} Updated", html=complaint_updated_html(out))
+    return out
 
 
 # ─── Scheduler ──────────────────────────────────────────────────
@@ -271,6 +290,70 @@ def delete_schedule(event_id: int):
     if not res.data:
         raise HTTPException(status_code=404, detail="Schedule event not found")
     return {"success": True, "detail": "Schedule cancelled successfully"}
+
+
+# ─── Email Endpoints ────────────────────────────────────────────
+
+class PurityReportRequest(BaseModel):
+    to: str
+    ward_name: str
+    ph_level: float = 7.2
+    turbidity: str = "0.4 NTU"
+    chlorine: str = "0.8 mg/L"
+    result: str = "Excellent"
+
+@app.post("/api/email/purity-report")
+def send_purity_report(req: PurityReportRequest):
+    sc = {"Excellent":"#6bd8cb","Good":"#89ceff","Fair":"#eab308","Poor":"#ff5252"}.get(req.result,"#bec8d2")
+    html = f"""<div style='font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0f1418;color:#dee3e9;padding:32px;border-radius:16px'><div style='text-align:center;margin-bottom:24px'><h1 style='color:#89ceff;font-size:28px;margin:0'>JalSetu</h1><p style='color:#bec8d2;font-size:13px'>Weekly Water Quality Report</p></div><div style='background:#1b2024;border-radius:12px;padding:24px;border:1px solid #3e4850'><h2 style='color:#89ceff;margin:0 0 8px'>💧 Purity Report — {req.ward_name}</h2><table style='width:100%;border-collapse:collapse;margin-top:16px'><tr><td style='padding:10px;color:#89ceff;font-weight:600'>pH Level</td><td style='padding:10px;color:#dee3e9'>{req.ph_level}</td><td style='padding:10px;color:#6bd8cb'>✓ Normal</td></tr><tr style='background:#252b2f'><td style='padding:10px;color:#89ceff;font-weight:600'>Turbidity</td><td style='padding:10px;color:#dee3e9'>{req.turbidity}</td><td style='padding:10px;color:#6bd8cb'>✓ Clear</td></tr><tr><td style='padding:10px;color:#89ceff;font-weight:600'>Chlorine</td><td style='padding:10px;color:#dee3e9'>{req.chlorine}</td><td style='padding:10px;color:#6bd8cb'>✓ Safe</td></tr></table><div style='margin-top:20px;padding:16px;background:#252b2f;border-radius:8px;border-left:4px solid {sc};text-align:center'><p style='margin:0;font-size:20px;font-weight:700;color:{sc}'>Overall: {req.result}</p></div></div><p style='color:#bec8d2;font-size:12px;text-align:center;margin-top:24px'>© 2024 JalSetu Technologies · Securing every drop</p></div>"""
+    send_email(to=req.to, subject=f"JalSetu — Weekly Water Quality Report · {req.ward_name}", html=html)
+    return {"success": True, "message": f"Purity report sent to {req.to}"}
+
+@app.post("/api/email/supply-alert")
+def send_supply_alert(to: str, ward_name: str, start_time: str):
+    html = f"""<div style='font-family:Inter,sans-serif;max-width:600px;margin:0 auto;background:#0f1418;color:#dee3e9;padding:32px;border-radius:16px'><div style='text-align:center;margin-bottom:24px'><h1 style='color:#89ceff;font-size:28px;margin:0'>JalSetu</h1></div><div style='background:#1b2024;border-radius:12px;padding:24px;border:1px solid #3e4850;text-align:center'><div style='font-size:48px;margin-bottom:16px'>💧</div><h2 style='color:#89ceff;margin:0 0 8px'>Water Supply Alert</h2><p style='color:#bec8d2'>Supply for <strong style='color:#dee3e9'>{ward_name}</strong> starts at</p><p style='font-size:36px;font-weight:800;color:#6bd8cb;margin:8px 0'>{start_time}</p><p style='color:#bec8d2;font-size:13px'>Please ensure your storage tanks are ready.</p></div><p style='color:#bec8d2;font-size:12px;text-align:center;margin-top:24px'>© 2024 JalSetu Technologies · Securing every drop</p></div>"""
+    send_email(to=to, subject=f"JalSetu — Water Supply Alert · {ward_name} at {start_time}", html=html)
+    return {"success": True, "message": f"Supply alert sent to {to}"}
+
+
+# ─── SMS Endpoints (MSG91) ──────────────────────────────────────
+
+class SMSRequest(BaseModel):
+    to: str
+    message: str
+
+@app.post("/api/notify/sms")
+def send_sms_alert(req: SMSRequest):
+    if not MSG91_AUTH_KEY:
+        raise HTTPException(status_code=500, detail="MSG91 API Key not configured")
+
+    payload = {
+        "sender": "JALSTU",
+        "route": "4",
+        "country": "91",
+        "sms": [
+            {
+                "message": req.message,
+                "to": [req.to]
+            }
+        ]
+    }
+    headers = {
+        "authkey": MSG91_AUTH_KEY,
+        "content-type": "application/json"
+    }
+
+    try:
+        response = requests.post("https://api.msg91.com/api/v2/sendsms", json=payload, headers=headers)
+        data = response.json()
+        return {
+            "success": True, 
+            "message": f"SMS queued for {req.to}",
+            "msg91_response": data
+        }
+    except Exception as e:
+        print(f"[SMS Error] {e}")
+        return {"success": False, "message": str(e)}
 
 
 # ─── Node Flush (simulated) ──────────────────────────────────────

@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Link } from "react-router-dom";
+import { MapContainer, TileLayer, Marker, Popup, useMap } from "react-leaflet";
+import L from "leaflet";
 import { adminStats, wards as localWards, complaints, sensorNodes } from "../data/mockData";
 import { fetchWards, triggerFlush } from "../services/api";
 
@@ -13,6 +15,18 @@ const DepartmentPortal = () => {
   const [sortBy, setSortBy] = useState("default");
   const [toasts, setToasts] = useState([]);
   const [wardsList, setWardsList] = useState(localWards);
+  
+  const center = [19.0760, 72.8777];
+
+  // Helper component to handle zoom/pan programmatically
+  const MapController = () => {
+    const map = useMap();
+    useEffect(() => {
+      // Expose map to window or parent state if needed, but we can handle it directly via refs if we want.
+      // For now, we'll keep the buttons doing standard Leaflet controls (which are built-in).
+    }, [map]);
+    return null;
+  };
 
   const addToast = (message, type = "success") => {
     const id = Date.now();
@@ -35,9 +49,12 @@ const DepartmentPortal = () => {
     loadWards();
   }, []);
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 2));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 1));
-  const handleReset = () => { setZoom(1); setPosition({ x: 0, y: 0 }); setSelectedNode(null); };
+  // Since Leaflet has built-in zoom controls, we don't strictly need these custom buttons unless desired.
+  // But to keep the UI exactly as it was:
+  const [mapInstance, setMapInstance] = useState(null);
+  const handleZoomIn = () => { if (mapInstance) mapInstance.zoomIn(); };
+  const handleZoomOut = () => { if (mapInstance) mapInstance.zoomOut(); };
+  const handleReset = () => { if (mapInstance) { mapInstance.setView(center, 12); } setSelectedNode(null); };
 
   const handleFlushNode = async (nodeLabel) => {
     setFlushingNode(true);
@@ -132,35 +149,55 @@ const DepartmentPortal = () => {
         >
           {/* Interactive Map Area */}
           <div className="flex-1 relative bg-[#0a0f13] overflow-hidden rounded-xl border border-outline-variant/10">
-            <div 
-              className="w-full h-full relative transition-transform duration-300 origin-center"
-              style={{ transform: `scale(${zoom}) translate(${position.x}px, ${position.y}px)` }}
-            >
-              <img 
-                className="w-full h-full object-cover opacity-40 mix-blend-luminosity select-none pointer-events-none" 
-                alt="Topographical city map" 
-                src="https://lh3.googleusercontent.com/aida-public/AB6AXuCtO5QVH4j6T-sCfhoFdYrP9l3gnZ_lA-Flyz2PUzZlwMvtIWeqjcrWJytvntc5M7aHt6cqjRviqI2CfcU-ziEWTPb8wW8GA3DO5tmAca-a4KrKxhjUEEdZrk-E413zsXYx9CyOx_h_UMLtgfNt2VjzV6P2qxEdBMh5tuLG_o9cFfMe7qzevY-3jxpvLBCbeJOiheSt_ch8wvokDdShhlcpuBQsYZSL6uCK7dg6HaGQfG5jY1fgXVLnwhyzIMZo59yXoanNhlNBTQQZ"
-              />
-              
-              {/* Sensor Nodes */}
-              {sensorNodes.map((node) => (
-                <motion.div
-                  key={node.id}
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ delay: 0.5 + node.id * 0.1, type: "spring" }}
-                  onClick={() => setSelectedNode(node)}
-                  className="absolute z-10 group cursor-pointer"
-                  style={{ left: `${node.x}%`, top: `${node.y}%` }}
+                <MapContainer 
+                  center={center} 
+                  zoom={12} 
+                  zoomControl={false}
+                  scrollWheelZoom={true} 
+                  style={{ width: '100%', height: '100%', background: '#0a0f13' }}
+                  ref={setMapInstance}
                 >
-                  <div className={`w-4 h-4 rounded-full ${statusColors[node.status]}`} />
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-surface rounded border border-outline-variant/30 text-[10px] text-on-surface whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity z-20 pointer-events-none shadow-2xl">
-                    <p className="font-bold">{node.label}</p>
-                    <p className="text-on-surface-variant capitalize mt-0.5">Status: {node.status}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
+                  <TileLayer
+                    url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+                    attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+                  />
+                  {sensorNodes.map((node) => {
+                    let pinColor = "#0ea5e9"; // Active/Primary
+                    let shadowGlow = "rgba(14, 165, 233, 0.5)";
+                    if (node.status === "stable") { pinColor = "#6bd8cb"; shadowGlow = "rgba(107, 216, 203, 0.5)"; }
+                    if (node.status === "critical") { pinColor = "#ffb4ab"; shadowGlow = "rgba(255, 180, 171, 0.5)"; }
+
+                    const customIcon = L.divIcon({
+                      className: 'custom-leaflet-marker',
+                      html: `<div style="width: 20px; height: 20px; background-color: ${pinColor}; border-radius: 50%; border: 3px solid #0f1418; box-shadow: 0 0 15px ${shadowGlow}"></div>`,
+                      iconSize: [20, 20],
+                      iconAnchor: [10, 10],
+                      popupAnchor: [0, -10]
+                    });
+
+                    return (
+                      <Marker 
+                        key={node.id} 
+                        position={[node.lat, node.lng]} 
+                        icon={customIcon}
+                        eventHandlers={{
+                          click: () => setSelectedNode(node),
+                        }}
+                      >
+                        <Popup className="custom-popup" closeButton={false}>
+                          <div className="text-gray-900 p-1 min-w-[120px] m-0">
+                            <h4 className="font-bold text-sm mb-1">{node.label}</h4>
+                            <p className="text-xs font-semibold capitalize m-0" style={{
+                              color: node.status === 'critical' ? '#ef4444' : node.status === 'active' ? '#0ea5e9' : '#14b8a6'
+                            }}>
+                              {node.status}
+                            </p>
+                          </div>
+                        </Popup>
+                      </Marker>
+                    );
+                  })}
+                </MapContainer>
             
             {/* Map Controls */}
             <div className="absolute top-4 left-4 z-20 flex flex-col gap-2">

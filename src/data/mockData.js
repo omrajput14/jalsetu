@@ -112,11 +112,11 @@ export const adminStats = {
 
 // ===== Sensor Map Nodes =====
 export const sensorNodes = [
-  { id: 1, x: 35, y: 45, status: "stable", label: "Node A-1" },
-  { id: 2, x: 55, y: 60, status: "active", label: "Node B-3" },
-  { id: 3, x: 48, y: 75, status: "critical", label: "Node C-2" },
-  { id: 4, x: 70, y: 40, status: "stable", label: "Node D-1" },
-  { id: 5, x: 25, y: 65, status: "active", label: "Node E-4" },
+  { id: 1, lat: 19.0760, lng: 72.8777, status: "stable", label: "Node A-1" },
+  { id: 2, lat: 19.0800, lng: 72.8800, status: "active", label: "Node B-3" },
+  { id: 3, lat: 19.0700, lng: 72.8700, status: "critical", label: "Node C-2" },
+  { id: 4, lat: 19.0850, lng: 72.8600, status: "stable", label: "Node D-1" },
+  { id: 5, lat: 19.0600, lng: 72.8900, status: "active", label: "Node E-4" },
 ];
 
 // ===== Supply Schedule Calendar Events =====
